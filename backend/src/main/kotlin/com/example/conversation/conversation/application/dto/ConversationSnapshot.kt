@@ -1,4 +1,4 @@
-package com.example.conversation.conversation.application
+package com.example.conversation.conversation.application.dto
 
 import com.example.conversation.conversation.model.MessageRole
 import java.time.Instant

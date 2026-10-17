@@ -6,8 +6,8 @@ import com.example.conversation.conversation.api.dto.ConversationPreviewResponse
 import com.example.conversation.conversation.api.dto.MessageExchangeResponse
 import com.example.conversation.conversation.api.dto.RenameConversationRequest
 import com.example.conversation.conversation.api.dto.SendMessageRequest
-import com.example.conversation.conversation.application.ConversationCommandService
-import com.example.conversation.conversation.application.ConversationQueryService
+import com.example.conversation.conversation.application.command.ConversationCommandService
+import com.example.conversation.conversation.application.query.ConversationQueryService
 import com.example.conversation.identity.CurrentUser
 import org.springframework.http.HttpStatus
 import org.springframework.web.bind.annotation.DeleteMapping

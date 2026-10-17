@@ -1,4 +1,4 @@
-package com.example.conversation.conversation.application
+package com.example.conversation.conversation.application.dto
 
 /** Result of a successful send: the conversation plus the newly saved user/assistant pair. */
 data class MessageExchange(

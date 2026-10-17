@@ -1,6 +1,6 @@
-package com.example.conversation.conversation.persistence
+package com.example.conversation.conversation.persistence.model
 
-import com.example.conversation.identity.UserEntity
+import com.example.conversation.identity.model.User
 import jakarta.persistence.Column
 import jakarta.persistence.Entity
 import jakarta.persistence.FetchType
@@ -13,18 +13,18 @@ import java.util.UUID
 
 @Entity
 @Table(name = "conversation")
-class ConversationEntity(
+class Conversation(
     @Id
-    @Column(name = "id", nullable = false)
+    @Column(nullable = false)
     val id: UUID,
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "user_id", nullable = false)
-    val user: UserEntity,
+    @JoinColumn(nullable = false)
+    val user: User,
 
-    @Column(name = "title", nullable = false, length = 80)
+    @Column(nullable = false, length = 80)
     var title: String,
 
-    @Column(name = "created_at", nullable = false, columnDefinition = "timestamptz")
+    @Column(nullable = false, columnDefinition = "timestamptz")
     val createdAt: Instant,
 )

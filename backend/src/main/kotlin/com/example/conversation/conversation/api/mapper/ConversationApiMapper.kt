@@ -5,10 +5,10 @@ import com.example.conversation.conversation.api.dto.ConversationListResponse
 import com.example.conversation.conversation.api.dto.ConversationPreviewResponse
 import com.example.conversation.conversation.api.dto.MessageExchangeResponse
 import com.example.conversation.conversation.api.dto.MessageResponse
-import com.example.conversation.conversation.application.ConversationPreview
-import com.example.conversation.conversation.application.ConversationSnapshot
-import com.example.conversation.conversation.application.MessageExchange
-import com.example.conversation.conversation.application.MessageSnapshot
+import com.example.conversation.conversation.application.dto.ConversationPreview
+import com.example.conversation.conversation.application.dto.ConversationSnapshot
+import com.example.conversation.conversation.application.dto.MessageExchange
+import com.example.conversation.conversation.application.dto.MessageSnapshot
 import org.springframework.stereotype.Component
 
 @Component

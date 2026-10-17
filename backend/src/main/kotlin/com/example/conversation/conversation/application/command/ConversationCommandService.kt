@@ -1,6 +1,11 @@
-package com.example.conversation.conversation.application
+package com.example.conversation.conversation.application.command
 
 import com.example.conversation.config.ChatProperties
+import com.example.conversation.conversation.application.ConversationMutationGuard
+import com.example.conversation.conversation.application.ConversationStore
+import com.example.conversation.conversation.application.ConversationTitleFactory
+import com.example.conversation.conversation.application.dto.ConversationPreview
+import com.example.conversation.conversation.application.dto.MessageExchange
 import com.example.conversation.error.ApiException
 import com.example.conversation.llm.LlmGateway
 import com.example.conversation.llm.PromptFactory
