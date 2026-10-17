@@ -2,8 +2,15 @@
 # Replies just echo your message. PostgreSQL is still required (`make db-up`).
 spring:
   ai:
+    # Every Spring AI OpenAI model is off; otherwise each one demands an API key at startup.
     model:
       chat: none
+      embedding: none
+      image: none
+      moderation: none
+      audio:
+        speech: none
+        transcription: none
 
 app:
   llm:

@@ -13,6 +13,8 @@ class EchoLlmGateway : LlmGateway {
     override fun generate(messages: List<PromptMessage>): String {
         val last = messages.lastOrNull { it.role == PromptRole.USER }?.content.orEmpty()
         val historySize = messages.count { it.role != PromptRole.SYSTEM } - 1
-        return "(echo, $historySize earlier messages in context) You said: $last"
+        // The trailing line mimics what the real model is asked to add (see prompts/system.txt).
+        return "(echo, $historySize earlier messages in context) You said: $last\n" +
+            "[[suggestions]] Say it again | Tell me more | Give an example"
     }
 }
