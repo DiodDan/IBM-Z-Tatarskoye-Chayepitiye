@@ -4,7 +4,6 @@ import { ref } from 'vue'
 const props = defineProps<{
   disabled: boolean
   error: string | null
-  /** Parent returns true if the message was sent, so we only clear the box on success. */
   onSend: (content: string) => Promise<boolean>
 }>()
 
@@ -17,7 +16,7 @@ async function submit() {
 }
 
 function onKeydown(event: KeyboardEvent) {
-  // Enter = send, Shift+Enter = new line, ignore while typing with an IME (e.g. Japanese input)
+  
   if (event.key === 'Enter' && !event.shiftKey && !event.isComposing) {
     event.preventDefault()
     submit()

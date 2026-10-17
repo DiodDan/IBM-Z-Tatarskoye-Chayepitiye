@@ -98,3 +98,14 @@ The backend imports `.env` as Java properties from the repository root or its ow
 The backend pins Spring Boot 3.5.15, Spring AI 1.1.8, Kotlin 2.2.21, and Java 21. JPA uses schema validation; Flyway is available but domain migrations are not implemented. When implementing the AI gateway, select an installed `OLLAMA_MODEL`, enable the integration, and add model validation and readiness checks.
 
 The requirements disagree about `updatedAt` and sidebar ordering; resolve that against `openapi.json` before implementing the API.
+
+
+
+
+
++ DO NOT USE NORMAL NPM RUN DEV AS IT IS CURRENTLY USING MOCK DATA 
+THEREFORE USE 
+
+cd frontend
+npm ci
+npm run dev:mock

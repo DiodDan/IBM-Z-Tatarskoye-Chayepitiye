@@ -12,7 +12,7 @@ const emit = defineEmits<{ toggle: [] }>()
     :aria-label="theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'"
     @click="emit('toggle')"
   >
-    {{ theme === 'dark' ? '☀︎ Light' : '☾ Dark' }}
+    {{ theme === 'dark' ? 'Light' : 'Dark' }}
   </button>
 </template>
 

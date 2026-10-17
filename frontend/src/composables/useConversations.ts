@@ -9,13 +9,11 @@ function errorText(err: unknown): string {
   return 'Something went wrong.'
 }
 
-/** Newest first. Uses updatedAt if the backend sends it, otherwise createdAt (Kotlin backend). */
 function sortPreviews(list: ConversationPreview[]): ConversationPreview[] {
   const key = (c: ConversationPreview) => c.updatedAt ?? c.createdAt
   return [...list].sort((a, b) => key(b).localeCompare(key(a)) || a.id.localeCompare(b.id))
 }
 
-/** All conversation state lives here. Create it ONCE in the view and pass it down. */
 export function useConversations() {
   const conversations = ref<ConversationPreview[]>([])
   const activeConversationId = ref<string | null>(null)
@@ -76,7 +74,7 @@ export function useConversations() {
     isLoadingHistory.value = true
     try {
       const history = await conversationService.getConversation(id, controller.signal)
-      if (controller.signal.aborted) return // user already clicked something else
+      if (controller.signal.aborted) return 
       messages.value = history.messages
       upsertPreview(history.conversation)
     } catch (err) {
@@ -95,7 +93,7 @@ export function useConversations() {
     sendError.value = null
     isSending.value = true
 
-    // Temporary bubble so the user sees their message straight away.
+    
     const tempMessage: Message = {
       id: 'temp-' + Date.now(),
       role: 'user',

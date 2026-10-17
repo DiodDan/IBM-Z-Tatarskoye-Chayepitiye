@@ -10,7 +10,6 @@ const props = defineProps<{
 
 const container = ref<HTMLElement | null>(null)
 
-// Scroll to the newest message whenever the list changes.
 watch(
   () => [props.messages.length, props.isWaitingForReply],
   async () => {
