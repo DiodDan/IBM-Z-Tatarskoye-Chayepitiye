@@ -12,18 +12,23 @@ spring:
     open-in-view: false
     hibernate:
       ddl-auto: validate
+  http:
+    client:
+      connect-timeout: 5s
+      read-timeout: 120s
   ai:
-    # Enable the integration when implementing the LLM gateway.
-    model:
-      chat: none
-      embedding: none
-    ollama:
-      base-url: ${OLLAMA_BASE_URL:http://localhost:11434}
-      init:
-        pull-model-strategy: never
+    openai:
+      base-url: https://openrouter.ai/api
+      api-key: ${OPENROUTER_API_KEY:}
       chat:
         options:
-          model: ${OLLAMA_MODEL:}
+          model: ${OPENROUTER_MODEL:}
+
+app:
+  llm:
+    provider: openrouter
+  chat:
+    system-prompt: classpath:prompts/system.txt
 
 management:
   endpoints:

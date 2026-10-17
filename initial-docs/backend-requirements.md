@@ -4,11 +4,11 @@ Status: proposed implementation contract for the simple conversation demo.
 
 ## 1. Scope and technology
 
-Build one Spring Boot application using Kotlin, Gradle Kotlin DSL, Spring MVC, Spring Data JPA, Bean Validation, Flyway, PostgreSQL, and Spring AI with local Ollama. Run one backend instance. Responses are synchronous JSON containing a complete assistant reply.
+Build one Spring Boot application using Kotlin, Gradle Kotlin DSL, Spring MVC, Spring Data JPA, Bean Validation, Flyway, PostgreSQL, and Spring AI with OpenRouter's OpenAI-compatible API. Run one backend instance. Responses are synchronous JSON containing a complete assistant reply.
 
 Use Java 21 as the proposed runtime baseline. At project initialization, select and pin compatible stable Spring Boot, Spring AI, Kotlin, and Gradle versions using the official compatibility documentation. Import the Spring AI BOM. Do not independently select incompatible latest versions or use snapshots. Use Kotlin Spring/JPA plugins and the Kotlin JSON integration required by the selected Boot version.
 
-Use the `spring-ai-starter-model-ollama` integration. Configure the Ollama URL and exact locally installed model name externally; the model name remains a deployment choice. No classifier, embeddings, moderation models, tools, RAG, or vector database are included in this phase.
+Use the `spring-ai-starter-model-openai` integration with OpenRouter's API base URL. Configure `OPENROUTER_API_KEY` and `OPENROUTER_MODEL` externally; the model name remains a deployment choice. No classifier, embeddings, moderation models, tools, RAG, or vector database are included in this phase.
 
 ## 2. Functional requirements
 
@@ -23,7 +23,7 @@ Use the `spring-ai-starter-model-ollama` integration. Configure the Ollama URL a
 - A provider failure, blank reply, timeout, or persistence failure must not leave half a message exchange or an empty conversation.
 - Every conversation operation enforces ownership. Missing and foreign conversations both return 404.
 - One send may run per existing conversation. Conflicting send, rename, and delete operations return 409 while generation is running. Reads return the last committed history.
-- Sending to different conversations may proceed concurrently, subject to Ollama capacity. Two first-message requests create two independent conversations. Exactly-once delivery and automatic retries are outside v1.
+- Sending to different conversations may proceed concurrently, subject to OpenRouter capacity. Two first-message requests create two independent conversations. Exactly-once delivery and automatic retries are outside v1.
 
 ## 3. Data model
 
@@ -99,7 +99,7 @@ Validation defaults: message content must be nonblank and at most 20,000 Unicode
 | 409 | CONVERSATION_BUSY | Mutation already in progress |
 | 422 | CONTEXT_TOO_LARGE | Current input cannot fit configured prompt limits |
 | 502 | GENERATION_FAILED | Provider failure or invalid/blank generated text |
-| 503 | MODEL_UNAVAILABLE | Ollama cannot be reached or selected model is unavailable |
+| 503 | MODEL_UNAVAILABLE | OpenRouter cannot be reached or selected model is unavailable |
 | 504 | GENERATION_TIMEOUT | Configured generation deadline exceeded |
 | 500 | INTERNAL_ERROR | Unexpected failure, including failed persistence |
 
@@ -167,7 +167,7 @@ Dependency direction: controller → application services → repositories / Llm
 | Class | Responsibility |
 | --- | --- |
 | ConversationApplication | Spring Boot entry point. |
-| AiConfig | Build/configure ChatClient and its dedicated Ollama transport, including provider timeout configuration. |
+| AiConfig | Build/configure ChatClient and its dedicated OpenRouter transport, including provider timeout configuration. |
 | ChatProperties | Validated application settings for context window, input limits, title length, and generation deadline. |
 | WebConfig | Register identity argument resolver and same-origin web configuration. |
 | ClockConfig | Provide a UTC Clock so timestamps are controllable in tests. |
@@ -201,7 +201,7 @@ Dependency direction: controller → application services → repositories / Llm
 ### Create conversation
 
 1. Validate identity and input; derive title and build first prompt.
-2. Call Ollama outside a database transaction.
+2. Call OpenRouter outside a database transaction.
 3. Open a short write transaction: get/create User, insert Conversation, insert USER sequence 1 and ASSISTANT sequence 2.
 4. Commit, map persisted values, and return 201. Any database failure rolls back all inserts.
 
@@ -210,7 +210,7 @@ Dependency direction: controller → application services → repositories / Llm
 1. Check ownership before acquiring the guard, so a foreign busy conversation still returns 404.
 2. Acquire the conversation mutation guard without waiting; otherwise return 409.
 3. In a short read transaction, recheck ownership and load the selected context plus current maximum sequence.
-4. Build prompt and call Ollama with no database transaction/connection held for generation.
+4. Build prompt and call OpenRouter with no database transaction/connection held for generation.
 5. In a short write transaction, recheck ownership and expected maximum sequence, allocate the next two sequence values, and insert both messages atomically.
 6. Commit, return 200, and release the guard in finally.
 
@@ -222,7 +222,7 @@ No pending rows are necessary for this scope. If the process stops before commit
 
 Use Spring AI ChatClient with its synchronous call path. PostgreSQL message rows are the authoritative history. Explicitly pass selected history to each call; do not also attach a memory advisor that automatically writes/duplicates messages.
 
-Proposed context policy: at most the last 10 complete exchanges from this conversation, in sequence order. The UI still receives full stored history. Add the current input once. Drop oldest complete exchanges when exceeding a configurable prompt size budget. A character budget is a conservative application limit, not an exact token count: configure model context/output limits consistently for the chosen Ollama model and validate this with integration tests. If system prompt plus current input cannot fit the budget, return 422 before inference. Make this policy visible in developer documentation because older conversation details can be forgotten by the LLM.
+Proposed context policy: at most the last 10 complete exchanges from this conversation, in sequence order. The UI still receives full stored history. Add the current input once. Drop oldest complete exchanges when exceeding a configurable prompt size budget. A character budget is a conservative application limit, not an exact token count: configure model context/output limits consistently for the chosen OpenRouter model and validate this with integration tests. If system prompt plus current input cannot fit the budget, return 422 before inference. Make this policy visible in developer documentation because older conversation details can be forgotten by the LLM.
 
 Keep a fixed system prompt in resources/prompts/system.txt. Do not accept system instructions or provider options from the public API. Return plain text and reject blank responses.
 
@@ -231,13 +231,13 @@ The gateway is the future integration boundary for response evaluation; no safet
 ## 9. Configuration and running locally
 
 - PostgreSQL URL, username, password through environment variables.
-- Ollama base URL and model name through environment variables; fail startup validation if the model name is missing.
+- OpenRouter API key and model name through environment variables; fail startup validation if either is missing.
 - Externalize generation timeout, context limits, and system prompt resource.
-- Provision/pull the selected model before serving demo traffic; avoid implicit model downloads during a user request.
-- Docker Compose starts PostgreSQL. Backend may run through Gradle and Ollama natively, which is convenient on macOS. If backend runs in a container, configure a reachable Ollama host explicitly.
+- Confirm the selected OpenRouter model is available before serving demo traffic.
+- Docker Compose starts PostgreSQL. The backend connects to OpenRouter over HTTPS; no local inference server is required.
 - Align provider total request deadline and proxy/browser timeout so the server can return its own timeout response first. A socket read timeout alone is not a guaranteed end-to-end deadline.
 - Apply Flyway migrations; use Hibernate schema validation rather than schema creation/update.
-- Same-origin `/api` routing in deployment; use the Vue development proxy locally. Do not expose Ollama directly to the browser.
+- Same-origin `/api` routing in deployment; use the Vue development proxy locally. Never expose the OpenRouter API key to the browser.
 - Return Cache-Control: no-store for API responses. Validate same-origin mutation requests and require JSON request bodies where applicable.
 - Cookie UUID possession grants access. There is no login, recovery, or cross-device identity in v1.
 - Basic Actuator health for application/database and a separate model readiness check. Do not generate a model reply on every health probe or expose sensitive actuator endpoints publicly.
@@ -245,7 +245,7 @@ The gateway is the future integration boundary for response evaluation; no safet
 
 ## 10. Verification and delivery criteria
 
-Use JUnit 5 and Spring Boot test support. Testcontainers PostgreSQL verifies migrations, constraints, ownership filtering, and transaction rollback. Substitute a deterministic LlmGateway in API/workflow tests. Keep one optional local Ollama smoke test outside the default test suite.
+Use JUnit 5 and Spring Boot test support. Testcontainers PostgreSQL verifies migrations, constraints, ownership filtering, and transaction rollback. Substitute a deterministic LlmGateway in API/workflow tests. Keep one optional OpenRouter smoke test outside the default test suite.
 
 Required meaningful cases:
 
@@ -260,11 +260,11 @@ Required meaningful cases:
 9. Two simultaneous first sends for one cookie resolve to one internal User row without a unique-key failure.
 10. Unicode title/content validation, context trimming, and malformed identity/body/path handling follow the contract.
 
-Delivery includes Gradle wrapper, source structure above, Flyway migration, local database Compose file, environment example without secrets, README run instructions, updated OpenAPI, and automated checks. This document specifies the implementation; it does not claim the code or tests already exist.
+Delivery includes Gradle wrapper, source structure above, Flyway migration, local database Compose file, environment example without secrets, README run instructions, updated OpenAPI, and automated checks. The source and test suites are the implementation record; update this contract when implementation choices change.
 
 ## References
 
 - Spring Boot Kotlin: https://docs.spring.io/spring-boot/reference/features/kotlin.html
 - Spring AI ChatClient: https://docs.spring.io/spring-ai/reference/api/chatclient.html
-- Spring AI Ollama: https://docs.spring.io/spring-ai/reference/api/chat/ollama-chat.html
+- Spring AI OpenAI: https://docs.spring.io/spring-ai/reference/api/chat/openai-chat.html
 - Spring AI chat memory: https://docs.spring.io/spring-ai/reference/api/chat-memory.html
