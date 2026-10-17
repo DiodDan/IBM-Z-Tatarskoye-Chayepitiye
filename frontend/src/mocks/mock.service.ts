@@ -1,4 +1,4 @@
-// Fake backend for building the UI before the Java backend is ready.
+// Fake backend for building the UI before the Kotlin backend is ready.
 // Data lives in memory and resets when you refresh the page.
 import type { ConversationService } from '../services/conversation.service'
 import { ApiError } from '../services/http'
