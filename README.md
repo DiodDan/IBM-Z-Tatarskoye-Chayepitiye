@@ -99,15 +99,7 @@ The backend imports `.env` as Java properties from the repository root or its ow
 
 The backend pins Spring Boot 3.5.15, Spring AI 1.1.8, Kotlin 2.2.21, and Java 21. Spring AI connects to OpenRouter's OpenAI-compatible API; `OPENROUTER_API_KEY` and `OPENROUTER_MODEL` are read from the environment or local `.env`. The model must be configured for `make backend`; `make backend-echo` does not require model credentials. JPA uses schema validation and Flyway manages the database schema.
 
+Each assistant message has `suggestions` (follow-up chips). The model is asked in `prompts/system.txt` to end its reply with a `[[suggestions]] a | b | c` line, which `AssistantReplyParser` removes from the stored text. The prompt-risk classifier plugs in by implementing `risk/PromptRiskClassifier.kt` (and removing `UnscoredPromptRiskClassifier`); scores (0–1, `null` until classified) are stored in `message.prompt_risk`. They are admin-only: the chat API never returns them, and they will be shown on the planned admin page.
+
 The requirements disagree about `updatedAt` and sidebar ordering; resolve that against `openapi.json` before implementing the API.
 
-
-
-
-
-+ DO NOT USE NORMAL NPM RUN DEV AS IT IS CURRENTLY USING MOCK DATA 
-THEREFORE USE 
-
-cd frontend
-npm ci
-npm run dev:mock
