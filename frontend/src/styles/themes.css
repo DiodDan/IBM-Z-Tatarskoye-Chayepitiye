@@ -1,2 +1,31 @@
-:root { color-scheme: light; --background: #f8fafc; --text: #0f172a; }
-:root[data-theme="dark"] { color-scheme: dark; --background: #0f172a; --text: #f8fafc; }
+
+Themes · CSS
+/* All colors are set here*/
+:root {
+  color-scheme: light;
+  --background: #f8fafc;
+  --text: #0f172a;
+  --surface-1: #eef2f7;
+  --surface-hover: #e2e8f0;
+  --border: #dbe2ea;
+  --text-muted: #64748b;
+  --accent: #4f46e5;
+  --accent-text: #ffffff;
+  --accent-soft: #e0e7ff;
+  --danger: #c62828;
+}
+ 
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --background: #010307;
+  --text: #f8fafc;
+  --surface-1: #37393f;
+  --surface-hover: #1e2a42;
+  --border: #26324a;
+  --text-muted: #94a3b8;
+  --accent: #818cf8;
+  --accent-text: #0f172a;
+  --accent-soft: #2e2c62;
+  --danger: #f87171;
+}
+

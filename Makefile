@@ -3,12 +3,13 @@
 # Gradle 8 runs on JDK 21; do not inherit an incompatible macOS default JDK.
 BACKEND_JAVA_HOME ?= $(shell if test -x /usr/libexec/java_home; then /usr/libexec/java_home -v 21 2>/dev/null; else printf '%s' "$$JAVA_HOME"; fi)
 
-.PHONY: help setup frontend-install db-up db-down db-logs backend frontend backend-build frontend-build compose-check check-java
+.PHONY: help setup frontend-install db-up db-down db-logs backend backend-echo frontend backend-build frontend-build compose-check check-java
 
 help:
 	@echo "make setup           Create .env if missing and install frontend dependencies"
 	@echo "make db-up           Start PostgreSQL and wait until healthy"
 	@echo "make backend         Run the Spring Boot backend"
+	@echo "make backend-echo    Run the backend with the no-key echo model"
 	@echo "make frontend        Run the Vite development server"
 	@echo "make db-down         Stop PostgreSQL (preserves data)"
 	@echo "make db-logs         Follow PostgreSQL logs"
@@ -38,6 +39,9 @@ check-java:
 
 backend: .env check-java
 	cd backend && JAVA_HOME="$(BACKEND_JAVA_HOME)" ./gradlew bootRun
+
+backend-echo: .env check-java
+	cd backend && JAVA_HOME="$(BACKEND_JAVA_HOME)" ./gradlew bootRun --args='--spring.profiles.active=echo'
 
 frontend:
 	cd frontend && npm run dev

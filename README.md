@@ -1,6 +1,6 @@
 # Conversation
 
-Base Kotlin/Spring Boot backend and Vue 3/TypeScript frontend. The project currently contains scaffolding only; conversation endpoints and AI generation are not implemented.
+Kotlin/Spring Boot backend and Vue 3/TypeScript frontend for anonymous AI conversations. The backend stores conversation history in PostgreSQL and uses OpenRouter for AI responses.
 
 ## Prerequisites
 
@@ -17,7 +17,7 @@ Run all Make commands from the repository root:
 make setup
 ```
 
-This installs frontend dependencies and copies `.env.template` to `.env` only if `.env` is missing. Edit `.env` to set your local PostgreSQL database name, username, password, and port. Existing `.env` values are preserved; the file is ignored by Git.
+This installs frontend dependencies and copies `.env.template` to `.env` only if `.env` is missing. Edit `.env` to set your PostgreSQL credentials and port, plus `OPENROUTER_API_KEY` and `OPENROUTER_MODEL`. Existing `.env` values are preserved; the file is ignored by Git. Keep the API key private and do not commit it.
 
 ## Run locally
 
@@ -33,6 +33,8 @@ Start the backend in one terminal:
 make backend
 ```
 
+`make backend` uses OpenRouter. For local development without an OpenRouter key, run `make backend-echo`; it returns a test reply instead of calling a model.
+
 Start the frontend in a second terminal:
 
 ```sh
@@ -45,7 +47,7 @@ make frontend
 | Backend | http://localhost:8080 |
 | Backend health | http://localhost:8080/actuator/health |
 
-Vite proxies `/api` requests to the backend. API endpoints are still to be implemented. Ollama is not required to run this scaffold: chat and embedding auto-configuration are disabled.
+Vite proxies `/api` requests to the backend. You can also test the backend directly without starting the frontend.
 
 Stop each development server with Ctrl+C. Stop PostgreSQL with:
 
@@ -87,7 +89,7 @@ Open the repository and import `backend/build.gradle.kts` as a Gradle project. S
 
 ## Configuration and structure
 
-- `backend/`: Gradle Kotlin DSL, Wrapper 8.14.3, Kotlin entry point, application configuration, and empty feature packages.
+- `backend/`: Gradle Kotlin DSL, Wrapper 8.14.3, Kotlin entry point, conversation API, persistence, and OpenRouter integration.
 - `frontend/`: Vue entry point, placeholder view, and directories for components, services, composables, types, and styles.
 - `docker-compose.yaml`: PostgreSQL with persistent storage and a health check.
 - `.env.template`: tracked configuration example; `.env`: local credentials.
@@ -95,6 +97,17 @@ Open the repository and import `backend/build.gradle.kts` as a Gradle project. S
 
 The backend imports `.env` as Java properties from the repository root or its own working directory. `application.yaml` references the same `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD`, and `POSTGRES_PORT` variables as Compose. Environment variables override file values. When editing the local file, use unquoted values without backslashes or trailing whitespace so both Compose and Spring interpret them consistently.
 
-The backend pins Spring Boot 3.5.15, Spring AI 1.1.8, Kotlin 2.2.21, and Java 21. JPA uses schema validation; Flyway is available but domain migrations are not implemented. When implementing the AI gateway, select an installed `OLLAMA_MODEL`, enable the integration, and add model validation and readiness checks.
+The backend pins Spring Boot 3.5.15, Spring AI 1.1.8, Kotlin 2.2.21, and Java 21. Spring AI connects to OpenRouter's OpenAI-compatible API; `OPENROUTER_API_KEY` and `OPENROUTER_MODEL` are read from the environment or local `.env`. The model must be configured for `make backend`; `make backend-echo` does not require model credentials. JPA uses schema validation and Flyway manages the database schema.
 
 The requirements disagree about `updatedAt` and sidebar ordering; resolve that against `openapi.json` before implementing the API.
+
+
+
+
+
++ DO NOT USE NORMAL NPM RUN DEV AS IT IS CURRENTLY USING MOCK DATA 
+THEREFORE USE 
+
+cd frontend
+npm ci
+npm run dev:mock

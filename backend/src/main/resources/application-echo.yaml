@@ -1,0 +1,10 @@
+# Development without an AI model or API key: `make backend-echo`
+# Replies just echo your message. PostgreSQL is still required (`make db-up`).
+spring:
+  ai:
+    model:
+      chat: none
+
+app:
+  llm:
+    provider: echo
