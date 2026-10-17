@@ -1,0 +1,529 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Conversation Service API",
+    "version": "1.0.0",
+    "description": "Minimal anonymous AI conversation API. All timestamps are UTC RFC 3339. The browser generates a UUID v4 once and stores it in the user_id cookie. Every endpoint scopes access to that cookie. Possession of the UUID grants access; no login or account recovery exists. Responses contain plain text; there is no streaming. Serve SPA and API from the same origin. Return Cache-Control: no-store for API responses."
+  },
+  "servers": [
+    {
+      "url": "/api"
+    }
+  ],
+  "security": [
+    {
+      "AnonymousUserCookie": []
+    }
+  ],
+  "tags": [
+    {
+      "name": "Conversations"
+    }
+  ],
+  "paths": {
+    "/conversations": {
+      "get": {
+        "operationId": "listConversations",
+        "summary": "Get conversation count and previews",
+        "tags": [
+          "Conversations"
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConversationList"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        },
+        "description": "Returns all conversations owned by the cookie user, ordered by updatedAt descending, then id ascending. conversationCount equals conversations.length. An unknown valid user UUID returns zero and an empty list. No pagination in v1."
+      },
+      "post": {
+        "operationId": "createConversation",
+        "summary": "Create a conversation with its first message and complete AI reply",
+        "tags": [
+          "Conversations"
+        ],
+        "responses": {
+          "201": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessageExchange"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "502": {
+            "$ref": "#/components/responses/GenerationFailed"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SendMessageRequest"
+              }
+            }
+          }
+        },
+        "description": "No empty conversation is created. Generate the title by collapsing whitespace in the first message, trimming, and taking the first 80 Unicode code points. Persist the conversation, user message and assistant reply together after successful generation. Return 502 if AI generation fails, with no persisted conversation or messages."
+      }
+    },
+    "/conversations/{conversationId}": {
+      "parameters": [
+        {
+          "name": "conversationId",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      ],
+      "get": {
+        "operationId": "getConversation",
+        "summary": "Get conversation metadata and full message history",
+        "tags": [
+          "Conversations"
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConversationHistory"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        },
+        "description": "Returns all persisted messages in conversation order, oldest first. Internal system prompts are excluded."
+      },
+      "patch": {
+        "operationId": "renameConversation",
+        "summary": "Rename a conversation",
+        "tags": [
+          "Conversations"
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConversationPreview"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "409": {
+            "$ref": "#/components/responses/ConversationBusy"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RenameConversationRequest"
+              }
+            }
+          }
+        },
+        "description": "Updates title and updatedAt. The automatic title is never regenerated."
+      },
+      "delete": {
+        "operationId": "deleteConversation",
+        "summary": "Permanently delete a conversation and its messages",
+        "tags": [
+          "Conversations"
+        ],
+        "responses": {
+          "204": {
+            "description": "Success"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/ConversationBusy"
+          }
+        }
+      }
+    },
+    "/conversations/{conversationId}/messages": {
+      "parameters": [
+        {
+          "name": "conversationId",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      ],
+      "post": {
+        "operationId": "sendMessage",
+        "summary": "Send a message and return the complete AI reply",
+        "tags": [
+          "Conversations"
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessageExchange"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "502": {
+            "$ref": "#/components/responses/GenerationFailed"
+          },
+          "409": {
+            "$ref": "#/components/responses/ConversationBusy"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SendMessageRequest"
+              }
+            }
+          }
+        },
+        "description": "Backend supplies prior conversation context to the AI. Wait for the entire reply, then persist both messages together and update conversation.updatedAt. On AI failure persist neither message. Concurrent sends to one conversation return 409; serialize generation per conversation. Rename and delete also return 409 while generation is in progress."
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "AnonymousUserCookie": {
+        "type": "apiKey",
+        "in": "cookie",
+        "name": "user_id",
+        "description": "Browser-generated UUID v4. Required on all requests. Do not send user IDs in request bodies or query strings."
+      }
+    },
+    "schemas": {
+      "ConversationPreview": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "title",
+          "createdAt",
+          "updatedAt"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "title": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 80
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "ConversationList": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "conversationCount",
+          "conversations"
+        ],
+        "properties": {
+          "conversationCount": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "conversations": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ConversationPreview"
+            }
+          }
+        }
+      },
+      "Message": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "role",
+          "content",
+          "createdAt"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "user",
+              "assistant"
+            ]
+          },
+          "content": {
+            "type": "string"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "ConversationHistory": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "conversation",
+          "messages"
+        ],
+        "properties": {
+          "conversation": {
+            "$ref": "#/components/schemas/ConversationPreview"
+          },
+          "messages": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Message"
+            }
+          }
+        }
+      },
+      "SendMessageRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "content"
+        ],
+        "properties": {
+          "content": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 20000,
+            "description": "Plain text. Must contain at least one non-whitespace character."
+          }
+        }
+      },
+      "RenameConversationRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "title"
+        ],
+        "properties": {
+          "title": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 80,
+            "description": "Trim leading/trailing whitespace; reject blank titles."
+          }
+        }
+      },
+      "MessageExchange": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "conversation",
+          "userMessage",
+          "assistantMessage"
+        ],
+        "properties": {
+          "conversation": {
+            "$ref": "#/components/schemas/ConversationPreview"
+          },
+          "userMessage": {
+            "$ref": "#/components/schemas/Message"
+          },
+          "assistantMessage": {
+            "$ref": "#/components/schemas/Message"
+          }
+        }
+      },
+      "Error": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "code",
+          "message"
+        ],
+        "properties": {
+          "code": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "responses": {
+      "Unauthorized": {
+        "description": "Missing or invalid user_id UUID cookie.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            },
+            "example": {
+              "code": "INVALID_USER_ID",
+              "message": "Missing or invalid user_id UUID cookie."
+            }
+          }
+        }
+      },
+      "NotFound": {
+        "description": "Conversation does not exist or belongs to another user.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            },
+            "example": {
+              "code": "CONVERSATION_NOT_FOUND",
+              "message": "Conversation does not exist or belongs to another user."
+            }
+          }
+        }
+      },
+      "BadRequest": {
+        "description": "Malformed JSON or invalid request fields.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            },
+            "example": {
+              "code": "INVALID_REQUEST",
+              "message": "Malformed JSON or invalid request fields."
+            }
+          }
+        }
+      },
+      "InternalError": {
+        "description": "Unexpected server error.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            },
+            "example": {
+              "code": "INTERNAL_ERROR",
+              "message": "Unexpected server error."
+            }
+          }
+        }
+      },
+      "GenerationFailed": {
+        "description": "AI generation failed. No message exchange was persisted.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            },
+            "example": {
+              "code": "GENERATION_FAILED",
+              "message": "AI generation failed. No message exchange was persisted."
+            }
+          }
+        }
+      },
+      "ConversationBusy": {
+        "description": "Conversation has an AI response in progress.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            },
+            "example": {
+              "code": "CONVERSATION_BUSY",
+              "message": "Conversation has an AI response in progress."
+            }
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,2 @@
+:root { color-scheme: light; --background: #f8fafc; --text: #0f172a; }
+:root[data-theme="dark"] { color-scheme: dark; --background: #0f172a; --text: #f8fafc; }

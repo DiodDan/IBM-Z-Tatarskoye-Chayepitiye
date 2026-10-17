@@ -1,0 +1,16 @@
+.idea/
+*.iml
+.DS_Store
+.env
+.env.*
+!.env.template
+backend/target/
+frontend/node_modules/
+frontend/dist/
+*.log
+*.tsbuildinfo
+
+# Gradle / Kotlin
+.gradle/
+.kotlin/
+backend/build/
