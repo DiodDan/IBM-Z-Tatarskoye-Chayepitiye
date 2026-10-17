@@ -1,31 +1,52 @@
-
-Themes · CSS
-/* All colors are set here*/
+/* All colors are set here. Light is the default; data-theme="dark" on <html> switches. */
 :root {
   color-scheme: light;
-  --background: #f8fafc;
-  --text: #0f172a;
-  --surface-1: #eef2f7;
-  --surface-hover: #e2e8f0;
-  --border: #dbe2ea;
-  --text-muted: #64748b;
-  --accent: #4f46e5;
+  --background: #f4f2ef;
+  --panel: #ffffff;
+  --surface: #ffffff;
+  --surface-hover: #f1edf0;
+  --input: #ffffff;
+  --border: #e3dfe2;
+  --text: #29262d;
+  --text-muted: #8a838e;
+  --accent: #4d2540;
+  --accent-hover: #63304f;
+  --accent-border: #4d2540;
   --accent-text: #ffffff;
-  --accent-soft: #e0e7ff;
-  --danger: #c62828;
-}
- 
-:root[data-theme="dark"] {
-  color-scheme: dark;
-  --background: #010307;
-  --text: #f8fafc;
-  --surface-1: #37393f;
-  --surface-hover: #1e2a42;
-  --border: #26324a;
-  --text-muted: #94a3b8;
-  --accent: #818cf8;
-  --accent-text: #0f172a;
-  --accent-soft: #2e2c62;
-  --danger: #f87171;
+  --user-bubble: #f0e9ed;
+  --user-bubble-text: #29262d;
+  --chip: #f1e6ee;
+  --chip-hover: #e8d6e2;
+  --chip-text: #4d2540;
+  --selected: #f0e8ed;
+  --selected-text: #29262d;
+  --selected-muted: #8a838e;
+  --shadow: 0 1px 3px rgb(41 38 45 / 0.08), 0 4px 14px rgb(41 38 45 / 0.05);
+  --danger: #b3261e;
 }
 
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --background: #141416;
+  --panel: #1b1b20;
+  --surface: #2e2e38;
+  --surface-hover: #26262e;
+  --input: #2a2a33;
+  --border: #3a3a45;
+  --text: #d9d9d9;
+  --text-muted: #9e9ea6;
+  --accent: #4d2540;
+  --accent-hover: #63304f;
+  --accent-border: #75405f;
+  --accent-text: #f7eef4;
+  --user-bubble: #4d2540;
+  --user-bubble-text: #f7eef4;
+  --chip: #4d2540;
+  --chip-hover: #63304f;
+  --chip-text: #f7eef4;
+  --selected: #4d2540;
+  --selected-text: #f7eef4;
+  --selected-muted: #d6b8cc;
+  --shadow: none;
+  --danger: #f2a7a2;
+}

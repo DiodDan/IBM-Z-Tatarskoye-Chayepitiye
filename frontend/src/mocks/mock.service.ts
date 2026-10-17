@@ -15,7 +15,9 @@ function makeTitle(content: string): string {
 }
 
 function makeMessage(role: Message['role'], content: string, status: Message['status'] = 'allowed'): Message {
-  return { id: newId(), role, content, createdAt: now(), status }
+  // Like the backend: only assistant messages carry suggestions.
+  const suggestions = role === 'assistant' ? ['Tell me more', 'Give an example'] : []
+  return { id: newId(), role, content, createdAt: now(), status, suggestions }
 }
 
 /** Type a message containing "bomb" or "kill" to see what a blocked reply looks like. */
@@ -26,9 +28,13 @@ function fakeReply(userText: string): Message {
   return makeMessage('assistant', `(mock reply) You said: "${userText}"`)
 }
 
+function withLastMessage(c: { preview: ConversationPreview; messages: Message[] }): ConversationPreview {
+  return { ...c.preview, lastMessage: c.messages.at(-1)?.content.slice(0, 120) ?? null }
+}
+
 function sorted(): ConversationPreview[] {
   return [...conversations.values()]
-    .map((c) => c.preview)
+    .map(withLastMessage)
     .sort((a, b) => b.createdAt.localeCompare(a.createdAt) || a.id.localeCompare(b.id))
 }
 
@@ -58,7 +64,7 @@ export const mockConversationService: ConversationService = {
   async getConversation(id) {
     await delay(200)
     const c = find(id)
-    return { conversation: { ...c.preview }, messages: [...c.messages] }
+    return { conversation: withLastMessage(c), messages: [...c.messages] }
   },
 
   async createConversation(content): Promise<MessageExchange> {
@@ -66,9 +72,9 @@ export const mockConversationService: ConversationService = {
     const id = newId()
     const userMessage = makeMessage('user', content)
     const assistantMessage = fakeReply(content)
-    const preview = { id, title: makeTitle(content), createdAt: now() }
-    conversations.set(id, { preview, messages: [userMessage, assistantMessage] })
-    return { conversation: { ...preview }, userMessage, assistantMessage }
+    const c = { preview: { id, title: makeTitle(content), createdAt: now() }, messages: [userMessage, assistantMessage] }
+    conversations.set(id, c)
+    return { conversation: withLastMessage(c), userMessage, assistantMessage }
   },
 
   async sendMessage(id, content): Promise<MessageExchange> {
@@ -77,14 +83,14 @@ export const mockConversationService: ConversationService = {
     const userMessage = makeMessage('user', content)
     const assistantMessage = fakeReply(content)
     c.messages.push(userMessage, assistantMessage)
-    return { conversation: { ...c.preview }, userMessage, assistantMessage }
+    return { conversation: withLastMessage(c), userMessage, assistantMessage }
   },
 
   async renameConversation(id, title) {
     await delay(200)
     const c = find(id)
     c.preview.title = title.trim()
-    return { ...c.preview }
+    return withLastMessage(c)
   },
 
   async deleteConversation(id) {

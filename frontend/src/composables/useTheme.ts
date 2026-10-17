@@ -13,9 +13,9 @@ export function useTheme() {
     { immediate: true },
   )
 
-  function toggleTheme() {
-    theme.value = theme.value === 'dark' ? 'light' : 'dark'
+  function setTheme(value: Theme) {
+    theme.value = value
   }
 
-  return { theme, toggleTheme }
+  return { theme, setTheme }
 }

@@ -7,6 +7,8 @@ export interface ConversationPreview {
   title: string
   createdAt: string
   updatedAt?: string
+  /** Shortened newest message, shown under the title in the sidebar. */
+  lastMessage?: string | null
 }
 
 export interface ConversationList {
@@ -20,6 +22,8 @@ export interface Message {
   content: string
   createdAt: string
   status?: MessageStatus
+  /** Assistant messages: follow-up prompts proposed by the model. */
+  suggestions?: string[]
 }
 
 export interface ConversationHistory {

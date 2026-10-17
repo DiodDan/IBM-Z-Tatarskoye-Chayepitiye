@@ -1,73 +1,171 @@
 <script setup lang="ts">
 import { computed } from 'vue'
+import Chip from '@carbon/icons-vue/es/chip/20'
 import type { Message } from '../types/api'
 
-const props = defineProps<{ message: Message }>()
+const props = defineProps<{
+  message: Message
+  suggestionsDisabled: boolean
+}>()
+
+const emit = defineEmits<{ suggest: [text: string] }>()
 
 const status = computed(() => props.message.status ?? 'allowed')
 const isUser = computed(() => props.message.role === 'user')
+const paragraphs = computed(() => props.message.content.split(/\n\s*\n/))
 </script>
 
 <template>
-  <div class="row" :class="isUser ? 'from-user' : 'from-assistant'">
-    <!-- Hidden AI reply -->
-    <div v-if="!isUser && status === 'blocked'" class="bubble notice blocked">
-      This response was hidden for safety reasons.
+  <!-- User -->
+  <article v-if="isUser" class="message user" aria-label="Your message">
+    <div class="label">You</div>
+    <div class="row">
+      <div class="bubble" :class="{ pending: status === 'pending', 'user-blocked': status === 'blocked' }">
+        {{ message.content }}
+        <span v-if="status === 'blocked'" class="blocked-tag">Blocked</span>
+      </div>
     </div>
+  </article>
 
-    <!-- AI failed -->
-    <div v-else-if="!isUser && status === 'failed'" class="bubble notice failed">
-      Something went wrong generating this response.
-    </div>
+  <!-- Assistant -->
+  <article v-else class="message assistant" aria-label="Assistant response" :aria-busy="status === 'pending' || undefined">
+    <div class="label">Response</div>
+    <div class="grid">
+      <span class="cpu-tile avatar"><Chip /></span>
+      <div class="name">AI Assistant</div>
 
-    <!-- Normal message (user messages always show their own text) -->
-    <div v-else class="bubble" :class="{ pending: status === 'pending', 'user-blocked': isUser && status === 'blocked' }">
-      <p class="content">{{ message.content }}</p>
-      <span v-if="isUser && status === 'blocked'" class="label">Blocked</span>
+      <div v-if="status === 'blocked'" class="bubble notice">This response was hidden for safety reasons.</div>
+      <div v-else-if="status === 'failed'" class="bubble notice">Something went wrong generating this response.</div>
+      <div v-else class="bubble" :class="{ pending: status === 'pending' }">
+        <p v-for="(paragraph, index) in paragraphs" :key="index">{{ paragraph }}</p>
+
+        <div v-if="message.suggestions?.length" class="suggestions">
+          <button
+            v-for="suggestion in message.suggestions"
+            :key="suggestion"
+            type="button"
+            :disabled="suggestionsDisabled"
+            @click="emit('suggest', suggestion)"
+          >
+            {{ suggestion }}
+          </button>
+        </div>
+      </div>
     </div>
-  </div>
+  </article>
 </template>
 
 <style scoped>
-.row {
-  display: flex;
+.message {
+  margin-bottom: 28px;
 }
-.from-user {
-  justify-content: flex-end;
+.label {
+  margin-bottom: 8px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 1.3px;
+  text-transform: uppercase;
+  color: var(--text-muted);
 }
 .bubble {
-  max-width: min(680px, 85%);
-  padding: 10px 14px;
-  border-radius: 14px;
-  background: var(--surface-1);
-  border: 1px solid var(--border);
-}
-.from-user .bubble {
-  background: var(--accent-soft);
-  border-color: transparent;
-}
-.content {
-  margin: 0;
+  font-size: 16px;
+  line-height: 1.55;
+  border-radius: 12px;
   white-space: pre-wrap;
-  word-break: break-word;
+  overflow-wrap: anywhere;
 }
-.pending {
-  opacity: 0.6;
+
+/* User */
+.user .row {
+  display: flex;
+  justify-content: flex-end;
+}
+.user .bubble {
+  max-width: min(680px, 80%);
+  padding: 9px 16px;
+  background: var(--user-bubble);
+  color: var(--user-bubble-text);
+  box-shadow: var(--shadow);
+}
+.user-blocked {
+  outline: 1px solid var(--danger);
+}
+.blocked-tag {
+  display: block;
+  margin-top: 4px;
+  font-size: 12px;
+  color: var(--danger);
+}
+
+/* Assistant */
+.grid {
+  display: grid;
+  grid-template-columns: 32px minmax(0, 1fr);
+  column-gap: 12px;
+  width: min(100%, 600px);
+}
+.avatar {
+  grid-column: 1;
+  grid-row: 1 / span 2;
+  border-radius: 50%;
+}
+.name {
+  grid-column: 2;
+  margin-bottom: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+.assistant .bubble {
+  grid-column: 2;
+  padding: 14px 16px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow);
+}
+.bubble p {
+  margin: 0;
+}
+.bubble p + p {
+  margin-top: 10px;
 }
 .notice {
   font-style: italic;
   color: var(--text-muted);
 }
-.blocked {
-  border-color: var(--danger);
+.pending {
+  opacity: 0.6;
 }
-.user-blocked {
-  outline: 1px solid var(--danger);
+.suggestions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+  white-space: normal;
 }
-.label {
-  display: inline-block;
-  margin-top: 6px;
-  font-size: 12px;
-  color: var(--danger);
+.suggestions button {
+  padding: 3px 10px;
+  border-radius: 14px;
+  background: var(--chip);
+  color: var(--chip-text);
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 18px;
+}
+.suggestions button:hover:not(:disabled) {
+  background: var(--chip-hover);
+}
+@media (max-width: 720px) {
+  .grid {
+    grid-template-columns: 28px minmax(0, 1fr);
+    column-gap: 8px;
+  }
+  .avatar {
+    width: 28px;
+    height: 28px;
+  }
+  .user .bubble {
+    max-width: 90%;
+  }
 }
 </style>

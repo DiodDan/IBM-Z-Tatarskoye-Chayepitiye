@@ -33,7 +33,7 @@ function saveTitle() {
 }
 
 function confirmDelete() {
-  if (confirm(`Delete "${props.conversation.title}"?`)) emit('delete', props.conversation.id)
+  if (confirm(`Delete "${props.conversation.title}"? This cannot be undone.`)) emit('delete', props.conversation.id)
 }
 </script>
 
@@ -52,61 +52,89 @@ function confirmDelete() {
     />
     <button
       v-else
-      class="title"
+      class="link"
       type="button"
       :disabled="disabled"
       :title="conversation.title"
+      :aria-current="active ? 'page' : undefined"
       @click="emit('select', conversation.id)"
     >
-      {{ conversation.title }}
+      <strong>{{ conversation.title }}</strong>
+      <small v-if="conversation.lastMessage">{{ conversation.lastMessage }}</small>
     </button>
 
-    <div v-if="!isEditing" class="actions">
-      <button type="button" class="icon" :disabled="disabled" aria-label="Rename" @click="startEditing">✎</button>
-      <button type="button" class="icon" :disabled="disabled" aria-label="Delete" @click="confirmDelete">🗑</button>
+    <div v-if="active && !isEditing" class="actions">
+      <button type="button" :disabled="disabled" @click="startEditing">Rename</button>
+      <button type="button" :disabled="disabled" @click="confirmDelete">Delete</button>
     </div>
   </li>
 </template>
 
 <style scoped>
 .item {
-  display: flex;
-  align-items: center;
-  gap: 4px;
   border-radius: 8px;
+  margin-bottom: 4px;
 }
-.item.active,
 .item:hover {
   background: var(--surface-hover);
 }
-.title {
-  flex: 1;
-  min-width: 0;
+.item.active {
+  background: var(--selected);
+  color: var(--selected-text);
+}
+.link {
+  display: block;
+  width: 100%;
+  padding: 10px 10px;
   text-align: left;
-  background: none;
-  border: none;
-  padding: 8px 10px;
+}
+.link:disabled {
+  opacity: 1;
+}
+strong,
+small {
+  display: block;
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
 }
+strong {
+  font-size: 14px;
+  font-weight: 600;
+}
+small {
+  margin-top: 2px;
+  font-size: 11px;
+  color: var(--text-muted);
+}
+.active small {
+  color: var(--selected-muted);
+}
+.active .link {
+  padding-bottom: 4px;
+}
 .actions {
-  display: none;
-  gap: 2px;
-  padding-right: 4px;
-}
-.item:hover .actions,
-.item.active .actions {
   display: flex;
+  gap: 4px;
+  padding: 0 6px 8px;
 }
-.icon {
-  background: none;
-  border: none;
-  padding: 4px 6px;
-  font-size: 13px;
+.actions button {
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 11px;
+  color: var(--selected-text);
+}
+.actions button:hover:not(:disabled) {
+  background: rgb(127 127 127 / 0.18);
 }
 .rename-input {
-  flex: 1;
-  margin: 2px;
+  display: block;
+  width: calc(100% - 12px);
+  margin: 6px;
+  padding: 6px 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--input);
+  color: var(--text);
 }
 </style>
