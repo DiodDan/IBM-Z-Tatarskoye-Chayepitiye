@@ -66,11 +66,19 @@ tasks.wrapper {
 // Runs compiled classes directly; no library packaging/publication step.
 tasks.register<JavaExec>("verifyModel") {
     classpath = sourceSets.main.get().runtimeClasspath
-    mainClass.set("org.ibmz.trajectory.Verify")
-    val bundle = providers.gradleProperty("bundle").orElse("../work/java-bundle-v2")
+    mainClass.set("com.example.conversation.trajectory.ModelVerification")
+    systemProperty("trajectory.verificationReport", layout.buildDirectory.file("reports/trajectory/verification.json").get().asFile.absolutePath)
+    systemProperty("trajectory.requireS390x", providers.gradleProperty("requireS390x").orElse("false").get())
+    val bundle = providers.gradleProperty("bundle").orElse("src/main/resources/trajectory")
     args(file(bundle.get()).absolutePath, providers.gradleProperty("threads").orElse("3").get())
     if (providers.gradleProperty("verifyResources").isPresent) {
         classpath += files(providers.gradleProperty("resourcesJar").map { file(it) }.getOrElse(file(bundle.get()).parentFile))
         systemProperty("trajectory.verifyResources", "true")
     }
 }
+
+tasks.bootJar {
+    archiveFileName.set("app.jar")
+}
+
+tasks.jar { enabled = false }
