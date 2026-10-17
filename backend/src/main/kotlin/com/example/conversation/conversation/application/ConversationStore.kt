@@ -1,12 +1,17 @@
 package com.example.conversation.conversation.application
 
+import com.example.conversation.conversation.application.dto.ConversationContext
+import com.example.conversation.conversation.application.dto.ConversationPreview
+import com.example.conversation.conversation.application.dto.ConversationSnapshot
+import com.example.conversation.conversation.application.dto.MessageExchange
+import com.example.conversation.conversation.application.dto.MessageSnapshot
 import com.example.conversation.conversation.model.MessageRole
-import com.example.conversation.conversation.persistence.ConversationEntity
-import com.example.conversation.conversation.persistence.ConversationRepository
-import com.example.conversation.conversation.persistence.MessageEntity
-import com.example.conversation.conversation.persistence.MessageRepository
+import com.example.conversation.conversation.persistence.model.Conversation
+import com.example.conversation.conversation.persistence.repository.ConversationRepository
+import com.example.conversation.conversation.persistence.model.Message
+import com.example.conversation.conversation.persistence.repository.MessageRepository
 import com.example.conversation.error.ApiException
-import com.example.conversation.identity.UserService
+import com.example.conversation.identity.service.UserService
 import jakarta.persistence.EntityManager
 import org.springframework.data.domain.PageRequest
 import org.springframework.stereotype.Component
@@ -29,14 +34,13 @@ class ConversationStore(
     private val conversations: ConversationRepository,
     private val messages: MessageRepository,
     private val userService: UserService,
-    private val entityManager: EntityManager,
     private val clock: Clock,
 ) {
 
     // ---------- Reads ----------
 
     @Transactional(readOnly = true)
-    fun listPreviews(owner: UUID): List<ConversationPreview> =
+    fun listConversationsPreviews(owner: UUID): List<ConversationPreview> =
         conversations.findAllByUserExternalIdOrderByCreatedAtDescIdAsc(owner).map { it.toPreview() }
 
     @Transactional(readOnly = true)
@@ -70,9 +74,9 @@ class ConversationStore(
     @Transactional
     fun createWithExchange(owner: UUID, title: String, userText: String, replyText: String): MessageExchange {
         val user = userService.findOrCreate(owner)
-        val now = now()
-        val conversation = ConversationEntity(UUID.randomUUID(), user, title, now)
-        entityManager.persist(conversation)
+        val now = Instant.now(clock)
+        val conversation = Conversation(UUID.randomUUID(), user, title, now)
+        conversations.save(conversation)
         return insertPair(conversation, firstSequence = 1, userText, replyText, now)
     }
 
@@ -91,7 +95,7 @@ class ConversationStore(
         val conversation = findOwned(owner, conversationId)
         val currentMax = messages.findMaxSequence(conversationId)
         if (currentMax != expectedMaxSequence) throw ApiException.conversationBusy()
-        return insertPair(conversation, firstSequence = currentMax + 1, userText, replyText, now())
+        return insertPair(conversation, firstSequence = currentMax + 1, userText, replyText, Instant.now(clock))
     }
 
     @Transactional
@@ -104,34 +108,30 @@ class ConversationStore(
     /** Messages are removed by the database (ON DELETE CASCADE) in the same transaction. */
     @Transactional
     fun delete(owner: UUID, conversationId: UUID) {
-        entityManager.remove(findOwned(owner, conversationId))
+        conversations.delete(findOwned(owner, conversationId))
     }
 
     // ---------- Helpers ----------
 
     private fun insertPair(
-        conversation: ConversationEntity,
+        conversation: Conversation,
         firstSequence: Long,
         userText: String,
         replyText: String,
         now: Instant,
     ): MessageExchange {
-        val userMessage = MessageEntity(UUID.randomUUID(), conversation.id, firstSequence, MessageRole.USER, userText, now)
+        val userMessage = Message(UUID.randomUUID(), conversation, firstSequence, MessageRole.USER, userText, now)
         val assistantMessage =
-            MessageEntity(UUID.randomUUID(), conversation.id, firstSequence + 1, MessageRole.ASSISTANT, replyText, now)
-        entityManager.persist(userMessage)
-        entityManager.persist(assistantMessage)
-        entityManager.flush() // surface constraint errors here, inside the transaction
+            Message(UUID.randomUUID(), conversation, firstSequence + 1, MessageRole.ASSISTANT, replyText, now)
+        messages.save(userMessage)
+        messages.save(assistantMessage)
         return MessageExchange(conversation.toPreview(), userMessage.toSnapshot(), assistantMessage.toSnapshot())
     }
 
-    private fun findOwned(owner: UUID, conversationId: UUID): ConversationEntity =
+    private fun findOwned(owner: UUID, conversationId: UUID): Conversation =
         conversations.findByIdAndUserExternalId(conversationId, owner) ?: throw ApiException.conversationNotFound()
 
-    /** PostgreSQL stores microseconds; truncate so the response matches what was saved. */
-    private fun now(): Instant = Instant.now(clock).truncatedTo(ChronoUnit.MICROS)
+    private fun Conversation.toPreview() = ConversationPreview(id, title, createdAt)
 
-    private fun ConversationEntity.toPreview() = ConversationPreview(id, title, createdAt)
-
-    private fun MessageEntity.toSnapshot() = MessageSnapshot(id, role, content, createdAt)
+    private fun Message.toSnapshot() = MessageSnapshot(id, role, content, createdAt)
 }

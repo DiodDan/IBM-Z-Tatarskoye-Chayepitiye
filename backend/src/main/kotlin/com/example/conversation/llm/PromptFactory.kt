@@ -1,7 +1,7 @@
 package com.example.conversation.llm
 
 import com.example.conversation.config.ChatProperties
-import com.example.conversation.conversation.application.MessageSnapshot
+import com.example.conversation.conversation.application.dto.MessageSnapshot
 import com.example.conversation.conversation.model.MessageRole
 import org.springframework.stereotype.Component
 

@@ -1,5 +1,6 @@
-package com.example.conversation.identity
+package com.example.conversation.identity.repository
 
+import com.example.conversation.identity.model.User
 import org.springframework.data.jpa.repository.JpaRepository
 import org.springframework.data.jpa.repository.Modifying
 import org.springframework.data.jpa.repository.Query
@@ -7,9 +8,9 @@ import org.springframework.data.repository.query.Param
 import java.time.Instant
 import java.util.UUID
 
-interface UserRepository : JpaRepository<UserEntity, UUID> {
+interface UserRepository : JpaRepository<User, UUID> {
 
-    fun findByExternalId(externalId: UUID): UserEntity?
+    fun findByExternalId(externalId: UUID): User?
 
     /** Safe under concurrency: two first messages from the same browser can't both insert. */
     @Modifying
