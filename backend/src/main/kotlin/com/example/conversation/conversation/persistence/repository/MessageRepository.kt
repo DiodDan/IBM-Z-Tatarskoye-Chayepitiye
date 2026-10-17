@@ -17,4 +17,14 @@ interface MessageRepository : JpaRepository<Message, UUID> {
 
     @Query("select coalesce(max(m.sequence), 0L) from Message m where m.conversation.id = :conversationId")
     fun findMaxSequence(@Param("conversationId") conversationId: UUID): Long
+
+    /** The newest message of every conversation the user owns (sidebar previews). */
+    @Query(
+        """
+        select m from Message m
+        where m.conversation.user.externalId = :owner
+          and m.sequence = (select max(m2.sequence) from Message m2 where m2.conversation = m.conversation)
+        """,
+    )
+    fun findLatestPerConversation(@Param("owner") owner: UUID): List<Message>
 }

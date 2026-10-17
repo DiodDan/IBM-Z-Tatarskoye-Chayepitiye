@@ -10,6 +10,8 @@ import jakarta.persistence.Id
 import jakarta.persistence.JoinColumn
 import jakarta.persistence.ManyToOne
 import jakarta.persistence.Table
+import org.hibernate.annotations.JdbcTypeCode
+import org.hibernate.type.SqlTypes
 import java.time.Instant
 import java.util.UUID
 
@@ -36,4 +38,13 @@ class Message(
 
     @Column(nullable = false, columnDefinition = "timestamptz")
     val createdAt: Instant,
+
+    /** Risk score of a user prompt (0..1). Null when not classified; always null for assistant rows. */
+    @Column(name = "prompt_risk")
+    val promptRisk: Double? = null,
+
+    /** Follow-up prompts proposed by the model; empty for user rows. */
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(nullable = false, columnDefinition = "jsonb")
+    val suggestions: List<String> = emptyList(),
 )

@@ -28,8 +28,14 @@ class ConversationApiMapper {
         )
 
     fun toPreview(preview: ConversationPreview) =
-        ConversationPreviewResponse(preview.id, preview.title, preview.createdAt)
+        ConversationPreviewResponse(preview.id, preview.title, preview.createdAt, preview.lastMessage)
 
     private fun toMessage(message: MessageSnapshot) =
-        MessageResponse(message.id, message.role.apiValue, message.content, message.createdAt)
+        MessageResponse(
+            message.id,
+            message.role.apiValue,
+            message.content,
+            message.createdAt,
+            message.suggestions,
+        )
 }

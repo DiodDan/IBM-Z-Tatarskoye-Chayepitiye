@@ -10,6 +10,8 @@ data class ConversationPreview(
     val id: UUID,
     val title: String,
     val createdAt: Instant,
+    /** Shortened text of the newest message, for the sidebar. Null when there are no messages. */
+    val lastMessage: String?,
 )
 
 data class MessageSnapshot(
@@ -17,6 +19,8 @@ data class MessageSnapshot(
     val role: MessageRole,
     val content: String,
     val createdAt: Instant,
+    val promptRisk: Double?,
+    val suggestions: List<String>,
 )
 
 /** A conversation with its full history (GET /conversations/{id}). */

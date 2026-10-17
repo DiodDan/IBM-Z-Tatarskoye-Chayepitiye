@@ -13,6 +13,8 @@ data class ConversationPreviewResponse(
     val id: UUID,
     val title: String,
     val createdAt: Instant,
+    /** Shortened newest message for the sidebar; null for a conversation without messages. */
+    val lastMessage: String?,
 )
 
 data class ConversationListResponse(
@@ -26,6 +28,9 @@ data class MessageResponse(
     val role: String,
     val content: String,
     val createdAt: Instant,
+    // promptRisk is deliberately NOT here: it is stored, but only for the (future) admin API, never for users.
+    /** Assistant messages only: follow-up prompts proposed by the model (0-3). Always empty for user. */
+    val suggestions: List<String>,
 )
 
 data class ConversationHistoryResponse(

@@ -7,14 +7,16 @@ import com.example.conversation.conversation.application.ConversationTitleFactor
 import com.example.conversation.conversation.application.dto.ConversationPreview
 import com.example.conversation.conversation.application.dto.MessageExchange
 import com.example.conversation.error.ApiException
+import com.example.conversation.llm.AssistantReplyParser
 import com.example.conversation.llm.LlmGateway
 import com.example.conversation.llm.PromptFactory
+import com.example.conversation.risk.PromptRiskClassifier
 import org.springframework.stereotype.Service
 import java.util.UUID
 
 /**
  * Orchestrates create / send / rename / delete. Order matters:
- *   validate -> check ownership -> lock -> read (short tx) -> LLM (NO tx) -> write (short tx) -> unlock
+ *   validate -> check ownership -> lock -> read (short tx) -> risk score + LLM (NO tx) -> write (short tx) -> unlock
  * If the LLM fails, nothing is written.
  */
 @Service
@@ -24,14 +26,17 @@ class ConversationCommandService(
     private val titleFactory: ConversationTitleFactory,
     private val promptFactory: PromptFactory,
     private val llm: LlmGateway,
+    private val replyParser: AssistantReplyParser,
+    private val riskClassifier: PromptRiskClassifier,
     private val properties: ChatProperties,
 ) {
 
     fun create(owner: UUID, rawContent: String): MessageExchange {
         val content = validateContent(rawContent)
         val title = titleFactory.fromFirstMessage(content)
-        val reply = llm.generate(promptFactory.build(history = emptyList(), currentInput = content))
-        return store.createWithExchange(owner, title, content, reply)
+        val risk = scoreRisk(content)
+        val reply = replyParser.parse(llm.generate(promptFactory.build(history = emptyList(), currentInput = content)))
+        return store.createWithExchange(owner, title, content, risk, reply)
     }
 
     fun send(owner: UUID, conversationId: UUID, rawContent: String): MessageExchange {
@@ -40,8 +45,9 @@ class ConversationCommandService(
         ensureOwned(owner, conversationId)
         return guard.runExclusive(conversationId) {
             val context = store.readContext(owner, conversationId, properties.contextExchanges * 2)
-            val reply = llm.generate(promptFactory.build(context.recentMessages, content))
-            store.appendExchange(owner, conversationId, context.maxSequence, content, reply)
+            val risk = scoreRisk(content)
+            val reply = replyParser.parse(llm.generate(promptFactory.build(context.recentMessages, content)))
+            store.appendExchange(owner, conversationId, context.maxSequence, content, risk, reply)
         }
     }
 
@@ -59,6 +65,10 @@ class ConversationCommandService(
         ensureOwned(owner, conversationId)
         guard.runExclusive(conversationId) { store.delete(owner, conversationId) }
     }
+
+    /** Out-of-range or non-finite scores are dropped (stored as "not classified") instead of failing the send. */
+    private fun scoreRisk(content: String): Double? =
+        riskClassifier.score(content)?.takeIf { it.isFinite() && it in 0.0..1.0 }
 
     private fun ensureOwned(owner: UUID, conversationId: UUID) {
         if (!store.isOwned(owner, conversationId)) throw ApiException.conversationNotFound()
