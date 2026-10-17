@@ -1,6 +1,6 @@
 
 Themes · CSS
-/* All colors live here. Change them to restyle the whole app. */
+/* All colors are set here*/
 :root {
   color-scheme: light;
   --background: #f8fafc;
@@ -17,9 +17,9 @@ Themes · CSS
  
 :root[data-theme="dark"] {
   color-scheme: dark;
-  --background: #0f172a;
+  --background: #010307;
   --text: #f8fafc;
-  --surface-1: #162033;
+  --surface-1: #37393f;
   --surface-hover: #1e2a42;
   --border: #26324a;
   --text-muted: #94a3b8;
