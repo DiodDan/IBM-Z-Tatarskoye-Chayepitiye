@@ -1,0 +1,22 @@
+.git
+**/.gradle
+**/.kotlin
+**/node_modules
+**/build
+frontend/dist
+.env
+.env.*
+**/.env
+**/.env.*
+*.log
+mainframe-report
+.idea
+.DS_Store
+# Include only the two verified native artifacts, not the multi-GB compiler trees.
+work/*
+!work/s390x-native/
+work/s390x-native/*
+!work/s390x-native/onnxruntime-s390x.jar
+!work/s390x-native/native/
+work/s390x-native/native/*
+!work/s390x-native/native/libtokenizers.so

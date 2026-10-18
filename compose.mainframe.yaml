@@ -1,0 +1,48 @@
+# Standalone Compose stack for Linux s390x. Uses the existing postgres_data volume.
+services:
+  postgres:
+    image: postgres:17-trixie
+    platform: linux/s390x
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:?Set POSTGRES_DB in .env}
+      POSTGRES_USER: ${POSTGRES_USER:?Set POSTGRES_USER in .env}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+    ports:
+      - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+
+  app:
+    image: trajectory-app:s390x
+    platform: linux/s390x
+    build:
+      context: .
+      dockerfile: Dockerfile.mainframe
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    env_file:
+      - .env
+    environment:
+      # Override any host-run settings in .env: this process lives on Compose DNS.
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: "5432"
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:?Set POSTGRES_DB in .env}
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:?Set POSTGRES_USER in .env}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+      RUST_LIBRARY_PATH: /opt/trajectory-native/libtokenizers.so
+      # First deployment is a local echo smoke test; set APP_PROFILE=default for OpenRouter.
+      SPRING_PROFILES_ACTIVE: ${APP_PROFILE:-echo}
+    ports:
+      - "127.0.0.1:${APP_PORT:-8080}:8080"
+    mem_limit: 5g
+
+volumes:
+  postgres_data:
