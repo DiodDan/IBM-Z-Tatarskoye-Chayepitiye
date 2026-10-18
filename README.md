@@ -103,7 +103,13 @@ Each assistant message has `suggestions` (follow-up chips). The model is asked i
 
 ### Admin page
 
-Open http://localhost:5173/admin (or `/#/admin` on hosts without SPA routing). It is read-only and shows every user's conversations with a Responses panel: risk score vs. threshold, reason, and response timing ("Pending" until the classifier is plugged in). The threshold is `app.admin.risk-threshold` in `application.yaml` (default 0.5). Data comes from `GET /api/admin/conversations` and `GET /api/admin/conversations/{id}`.
+Open http://localhost:5173/admin (or `/#/admin` on hosts without SPA routing). It is read-only and shows every user's conversations. The Responses panel lists every AI reply of every conversation with a permanent app-wide number ("Response №12"), risk score vs. threshold, reason, and response timing ("Pending" until the classifier is plugged in):
+
+- **See full response →** opens the reply's conversation, rings it in the left panel and highlights the reply in the chat.
+- **Copy** copies "Response №12"; pasting it (or any text from a reply) into the left search opens the conversation it came from at that reply.
+- **Filters** sort all replies on the server: newest, by reason, or by score.
+
+The threshold is `app.admin.risk-threshold` in `application.yaml` (default 0.5). Data comes from `GET /api/admin/conversations[?q=]`, `GET /api/admin/conversations/{id}` and `GET /api/admin/responses?sort=newest|reason|risk-asc|risk-desc`.
 
 **There is no admin login yet.** Anyone who can reach the app can open `/admin` and read all conversations. Add authentication in `admin/AdminController.kt` before deploying anywhere other people can reach.
 
