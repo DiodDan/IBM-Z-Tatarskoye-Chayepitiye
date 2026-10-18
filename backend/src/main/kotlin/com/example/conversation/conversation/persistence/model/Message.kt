@@ -51,6 +51,10 @@ class Message(
     @Column(name = "response_time_ms")
     val responseTimeMs: Long? = null,
 
+    /** App-wide "Response №" of an assistant reply (admin page). Null for user rows. */
+    @Column(name = "response_number", unique = true)
+    val responseNumber: Long? = null,
+
     /** Follow-up prompts proposed by the model; empty for user rows. */
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(nullable = false, columnDefinition = "jsonb")

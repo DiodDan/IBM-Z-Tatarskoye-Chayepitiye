@@ -18,6 +18,10 @@ interface MessageRepository : JpaRepository<Message, UUID> {
     @Query("select coalesce(max(m.sequence), 0L) from Message m where m.conversation.id = :conversationId")
     fun findMaxSequence(@Param("conversationId") conversationId: UUID): Long
 
+    /** Next app-wide response number (V4 migration). Gaps after a rollback are fine. */
+    @Query(value = "select nextval('response_number_seq')", nativeQuery = true)
+    fun nextResponseNumber(): Long
+
     /** The newest message of every conversation the user owns (sidebar previews). */
     @Query(
         """

@@ -146,6 +146,7 @@ class ConversationStore(
             UUID.randomUUID(), conversation, firstSequence + 1, MessageRole.ASSISTANT, reply.text, now,
             suggestions = reply.suggestions,
             responseTimeMs = reply.responseTimeMs,
+            responseNumber = messages.nextResponseNumber(),
         )
         messages.save(userMessage)
         messages.save(assistantMessage)

@@ -19,6 +19,17 @@ interface ConversationRepository : JpaRepository<Conversation, UUID> {
     @Query("select c from Conversation c join fetch c.user order by c.createdAt desc, c.id asc")
     fun findAllWithUserNewestFirst(): List<Conversation>
 
+    /** ADMIN ONLY: conversations whose title or any message matches `pattern` (lower-case LIKE, `\` escapes). */
+    @Query(
+        """
+        select c from Conversation c join fetch c.user
+        where lower(c.title) like :pattern escape '\'
+           or exists (select m.id from Message m where m.conversation = c and lower(m.content) like :pattern escape '\')
+        order by c.createdAt desc, c.id asc
+        """,
+    )
+    fun searchAllWithUser(@Param("pattern") pattern: String): List<Conversation>
+
     /** ADMIN ONLY: one conversation regardless of owner. */
     @Query("select c from Conversation c join fetch c.user where c.id = :id")
     fun findWithUser(@Param("id") id: UUID): Conversation?
