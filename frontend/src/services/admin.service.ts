@@ -1,3 +1,5 @@
+import type { ModelAssessment, TrajectoryDetail } from '../types/model'
+import { categoryLabels } from '../types/model'
 import { request } from './http'
 import { mockConversationService } from '../mocks/mock.service'
 import type {
@@ -15,10 +17,12 @@ export interface AdminService {
   listConversations(query?: string): Promise<AdminConversationList>
   getConversation(id: string, signal?: AbortSignal): Promise<AdminConversationHistory>
   listResponses(sort: ResponseSort): Promise<AdminResponseList>
+  getTrajectory(id: string): Promise<TrajectoryDetail>
 }
 
 /** Read-only admin API. No login yet: see AdminController.kt before deploying. */
 const realAdminService: AdminService = {
+  getTrajectory: (id) => request<TrajectoryDetail>(`/admin/trajectories/${id}`),
   listConversations: (query) =>
     request<AdminConversationList>(
       query?.trim() ? `/admin/conversations?q=${encodeURIComponent(query)}` : '/admin/conversations',
@@ -32,6 +36,16 @@ const realAdminService: AdminService = {
 const MOCK_USER = '00000000-0000-4000-8000-000000000000'
 const MOCK_THRESHOLD = 0.5
 
+function demoAssessment(number: number): ModelAssessment {
+  const value = [0.12, 0.73, 0.34][number % 3] ?? 0.12
+  const scores = { overall: value, categories: Object.fromEntries(Object.keys(categoryLabels).map((key, i) => [key, Math.max(0.01, value - i * 0.04)])), calibrationId: 'demo-uncalibrated', calibrationApplied: false }
+  return { analysis: { status: 'completed', modelFingerprint: 'demo-model-fingerprint', atomic: scores,
+    trajectory: { id: `demo-trajectory-${number}`, responseCount: 1, lastPosition: number, scores: null, associationScore: null },
+    coverage: { status: 'complete', totalTokens: 80, processedTokens: 80, windowCount: 1 },
+    windowPeak: null, errorCode: null, message: null },
+    membership: { ordinal: 1, associationLogit: null, linkThreshold: null, status: 'active', updatedAt: new Date().toISOString(), expiresAt: new Date(Date.now() + 86400000).toISOString() } }
+}
+
 async function mockHistories() {
   const list = await mockConversationService.listConversations()
   let number = 0
@@ -44,6 +58,7 @@ async function mockHistories() {
       promptRiskReason: m.role === 'user' && index % 3 !== 2 ? 'mock classifier reason' : null,
       responseTimeMs: m.role === 'assistant' ? 1200 : null,
       responseNumber: m.role === 'assistant' ? ++number : null,
+      modelAssessment: m.role === 'assistant' ? demoAssessment(number) : null,
     }))
     histories.push({ conversation: { ...history.conversation, userId: MOCK_USER } as AdminConversation, messages })
   }
@@ -51,6 +66,21 @@ async function mockHistories() {
 }
 
 const mockAdminService: AdminService = {
+  async getTrajectory(id) {
+    const histories = await mockHistories()
+    for (const { conversation, messages } of histories) {
+      const message = messages.find((m) => m.modelAssessment?.analysis.trajectory?.id === id)
+      const a = message?.modelAssessment?.analysis
+      if (message && a?.atomic && a.trajectory) return {
+        id, status: 'active', modelFingerprint: 'demo-model-fingerprint', responseCount: 1,
+        scores: a.atomic, updatedAt: message.createdAt,
+        members: [{ messageId: message.id, responseNumber: message.responseNumber,
+          conversationId: conversation.id, content: message.content, ordinal: 1, atomic: a.atomic,
+          associationScore: null, associationLogit: null, linkThreshold: null }],
+      }
+    }
+    throw new Error('Trajectory not found.')
+  },
   async listConversations(query) {
     const histories = await mockHistories()
     const q = query?.trim().toLowerCase()
@@ -90,6 +120,7 @@ const mockAdminService: AdminService = {
           promptRisk: prompt?.promptRisk ?? null,
           promptRiskReason: prompt?.promptRiskReason ?? null,
           responseTimeMs: m.responseTimeMs,
+          modelAssessment: m.modelAssessment,
         })
       })
     }
@@ -97,9 +128,9 @@ const mockAdminService: AdminService = {
       a === null ? (b === null ? 0 : 1) : b === null ? -1 : (a - b) * dir
     responses.sort((a, b) =>
       sort === 'risk-asc'
-        ? nullsLast(a.promptRisk, b.promptRisk, 1)
+        ? nullsLast(a.modelAssessment?.analysis.atomic?.overall ?? null, b.modelAssessment?.analysis.atomic?.overall ?? null, 1)
         : sort === 'risk-desc'
-          ? nullsLast(a.promptRisk, b.promptRisk, -1)
+          ? nullsLast(a.modelAssessment?.analysis.atomic?.overall ?? null, b.modelAssessment?.analysis.atomic?.overall ?? null, -1)
           : sort === 'reason'
             ? (a.promptRiskReason ?? '￿').localeCompare(b.promptRiskReason ?? '￿')
             : 0,

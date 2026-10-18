@@ -34,6 +34,7 @@ data class AdminMessage(
     val promptRiskReason: String?,
     val responseTimeMs: Long?,
     val responseNumber: Long?,
+    val modelAssessment: AdminModelAssessment? = null,
 )
 
 data class AdminConversationHistory(val conversation: AdminConversation, val messages: List<AdminMessage>)
@@ -49,6 +50,7 @@ class AdminConversationStore(
     private val conversations: ConversationRepository,
     private val messages: MessageRepository,
     private val responses: AdminResponseRepository,
+    private val modelScores: AdminModelScoreReader,
 ) {
 
     @Transactional(readOnly = true)
@@ -86,19 +88,24 @@ class AdminConversationStore(
     @Transactional(readOnly = true, isolation = Isolation.REPEATABLE_READ)
     fun history(conversationId: UUID): AdminConversationHistory {
         val conversation = conversations.findWithUser(conversationId) ?: throw ApiException.conversationNotFound()
-        val history = messages.findAllByConversationIdOrderBySequenceAsc(conversationId).map { it.toAdmin() }
+        val stored = messages.findAllByConversationIdOrderBySequenceAsc(conversationId)
+        val scores = modelScores.read(stored.filter { it.role.apiValue == "assistant" }.map { it.id })
+        val history = stored.map { it.toAdmin().copy(modelAssessment = scores[it.id]) }
         return AdminConversationHistory(conversation.toAdmin(history.lastOrNull()?.content), history)
     }
 
     @Transactional(readOnly = true)
     fun responses(sort: ResponseSort, limit: Int): List<AdminResponse> {
         val page = PageRequest.of(0, limit)
-        return when (sort) {
+        val fingerprint = modelScores.fingerprint()
+        val rows = when (sort) {
             ResponseSort.NEWEST -> responses.newestFirst(page)
             ResponseSort.REASON -> responses.byReason(page)
-            ResponseSort.RISK_ASC -> responses.byRiskAscending(page)
-            ResponseSort.RISK_DESC -> responses.byRiskDescending(page)
+            ResponseSort.RISK_ASC -> responses.byRiskAscending(fingerprint, page)
+            ResponseSort.RISK_DESC -> responses.byRiskDescending(fingerprint, page)
         }
+        val scores = modelScores.read(rows.map { it.messageId })
+        return rows.onEach { it.modelAssessment = scores[it.messageId] }
     }
 
     private fun Conversation.toAdmin(lastMessage: String?) =

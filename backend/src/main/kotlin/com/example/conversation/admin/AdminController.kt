@@ -16,18 +16,18 @@ data class AdminConversationListResponse(
 data class AdminConversationHistoryResponse(
     val conversation: AdminConversation,
     val messages: List<AdminMessage>,
-    /** Prompts with promptRisk >= this are high risk. */
+    /** Legacy prompt-classifier threshold; does not apply to response model scores. */
     val riskThreshold: Double,
 )
 
 data class AdminResponseListResponse(
     val responses: List<AdminResponse>,
-    /** Prompts with promptRisk >= this are high risk. */
+    /** Legacy prompt-classifier threshold; does not apply to response model scores. */
     val riskThreshold: Double,
 )
 
 /**
- * Read-only admin API: every user's conversations, including prompt risk scores and response timing.
+ * Read-only admin API: every user's conversations, including stored response/trajectory scores and response timing.
  *
  * WARNING: there is NO authentication yet (team decision for local development).
  * Anyone who can reach /api/admin can read all conversations. Add a login or password check
@@ -38,6 +38,7 @@ data class AdminResponseListResponse(
 class AdminController(
     private val store: AdminConversationStore,
     private val properties: AdminProperties,
+    private val modelScores: AdminModelScoreReader,
 ) {
 
     /** All conversations, or with `q` only those matching a pasted response number or text. */
@@ -69,6 +70,9 @@ class AdminController(
         if (limit !in 1..MAX_LIMIT) throw ApiException.invalidRequest("limit must be 1-$MAX_LIMIT.")
         return AdminResponseListResponse(store.responses(order, limit), properties.riskThreshold)
     }
+
+    @GetMapping("/trajectories/{trajectoryId}")
+    fun trajectory(@PathVariable trajectoryId: UUID): AdminTrajectoryDetail = modelScores.trajectory(trajectoryId)
 
     private companion object {
         const val MAX_LIMIT = 500

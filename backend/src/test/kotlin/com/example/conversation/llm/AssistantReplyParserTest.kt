@@ -34,4 +34,34 @@ class AssistantReplyParserTest {
         val reply = parser.parse("Answer\n[[suggestions]] a | $long | b | c | d")
         assertEquals(listOf("a", "b", "c"), reply.suggestions)
     }
+
+    @Test
+    fun `accepts individually bracketed suggestions from later model replies`() {
+        val reply = parser.parse("## More details\n\nUseful answer.\n[[read more stories] | explore genres | get recommendations ]")
+        assertEquals("## More details\n\nUseful answer.", reply.text)
+        assertEquals(listOf("read more stories", "explore genres", "get recommendations"), reply.suggestions)
+    }
+
+    @Test
+    fun `does not treat a marker inside an unclosed code block as actions`() {
+        val text = "Example:\n```text\n[[suggestions]] Explain again | More details"
+        assertEquals(text, parser.parse(text).text)
+        assertEquals(emptyList<String>(), parser.parse(text).suggestions)
+    }
+
+    @Test
+    fun `keeps earlier marker examples and extracts only final followups`() {
+        val text = "Example:\n```text\n[[suggestions]] First | Second\n```\n\n[[suggestions]] Actual follow-up | Next example"
+        val reply = parser.parse(text)
+        assertEquals("Example:\n```text\n[[suggestions]] First | Second\n```", reply.text)
+        assertEquals(listOf("Actual follow-up", "Next example"), reply.suggestions)
+    }
+
+    @Test
+    fun `extracts the real second response suffix appended to the final paragraph`() {
+        val text = "A community garden is a shared space.\n\nFeel free to ask! [[more information] | additional resources | local examples | gardening tips]"
+        val reply = parser.parse(text)
+        assertEquals("A community garden is a shared space.\n\nFeel free to ask!", reply.text)
+        assertEquals(listOf("more information", "additional resources", "local examples"), reply.suggestions)
+    }
 }

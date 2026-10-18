@@ -1,4 +1,5 @@
 import type { ConversationPreview, Message } from './api'
+import type { ModelAssessment } from './model'
 
 /** A conversation as the admin sees it: any user's, labelled with the owner's anonymous id. */
 export interface AdminConversation extends ConversationPreview {
@@ -32,6 +33,7 @@ export interface AdminResponse {
   promptRisk: number | null
   promptRiskReason: string | null
   responseTimeMs: number | null
+  modelAssessment?: ModelAssessment | null
 }
 
 export type ResponseSort = 'newest' | 'reason' | 'risk-asc' | 'risk-desc'

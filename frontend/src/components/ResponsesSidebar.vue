@@ -6,6 +6,11 @@ import Copy from '@carbon/icons-vue/es/copy/16'
 import Renew from '@carbon/icons-vue/es/renew/16'
 import SidePanelClose from '@carbon/icons-vue/es/side-panel--close/16'
 import AppModal from './AppModal.vue'
+import MarkdownText from './MarkdownText.vue'
+import ModelScoreCard from './ModelScoreCard.vue'
+import { adminService } from '../services/admin.service'
+import type { TrajectoryDetail } from '../types/model'
+import { formatScore } from '../types/model'
 import type { AdminResponse, ResponseSort } from '../types/admin'
 
 const props = defineProps<{
@@ -24,18 +29,16 @@ const emit = defineEmits<{
   refresh: []
   changeSort: [sort: ResponseSort]
   show: [response: AdminResponse]
+  jump: [conversationId: string, messageId: string]
 }>()
 
 const filters: { id: ResponseSort; label: string }[] = [
   { id: 'newest', label: 'All' },
-  { id: 'reason', label: 'Reason' },
-  { id: 'risk-asc', label: 'Scores (↓ to ↑)' },
-  { id: 'risk-desc', label: 'Scores (↑ to ↓)' },
+  { id: 'reason', label: 'Legacy prompt reason' },
+  { id: 'risk-asc', label: 'Response score: low → high' },
+  { id: 'risk-desc', label: 'Response score: high → low' },
 ]
 
-const isHigh = (r: AdminResponse) => r.promptRisk !== null && r.promptRisk >= props.riskThreshold
-const scoreText = (r: AdminResponse) =>
-  r.promptRisk === null ? 'Pending' : `${r.promptRisk.toFixed(2)} / 1 (${isHigh(r) ? 'high' : 'low'} risk)`
 const timingText = (ms: number | null) =>
   ms === null ? 'Not measured' : `${ms < 1000 ? `${ms} ms` : `${(ms / 1000).toFixed(1)}s`} response latency`
 
@@ -54,6 +57,24 @@ async function copyNumber(r: AdminResponse) {
 }
 
 const report = ref<AdminResponse | null>(null)
+const trajectoryOpen = ref(false)
+const trajectoryDetail = ref<TrajectoryDetail | null>(null)
+const trajectoryError = ref<string | null>(null)
+let trajectoryRequest = 0
+async function openTrajectory(id: string) {
+  const request = ++trajectoryRequest
+  report.value = null
+  trajectoryOpen.value = true
+  trajectoryDetail.value = null
+  trajectoryError.value = null
+  try {
+    const detail = await adminService.getTrajectory(id)
+    if (request === trajectoryRequest) trajectoryDetail.value = detail
+  } catch (error) {
+    if (request === trajectoryRequest) trajectoryError.value = error instanceof Error ? error.message : 'Could not load trajectory.'
+  }
+}
+function closeTrajectory() { trajectoryOpen.value = false; trajectoryRequest++ }
 
 // Keep the card of the highlighted reply in view (e.g. after pasting its number into the search).
 const scroller = ref<HTMLElement | null>(null)
@@ -135,32 +156,31 @@ watch(
         </div>
 
         <section class="section">
-          <h4>Risk Metrics</h4>
-          <div class="row">
-            <span>Risk score · Threshold</span>
-            <span v-if="r.promptRisk === null" class="value pending">Pending</span>
-            <span v-else class="value" :class="{ high: isHigh(r) }">
-              {{ r.promptRisk.toFixed(2) }}/{{ riskThreshold.toFixed(2) }}
-            </span>
-          </div>
-        </section>
-
-        <section class="section">
-          <h4 class="big">Report</h4>
-          <div class="fields">
-            <p>Reason · {{ r.promptRiskReason ?? 'Pending' }}</p>
-            <p>Scores · {{ scoreText(r) }}</p>
-            <p>Timing · {{ timingText(r.responseTimeMs) }}</p>
-          </div>
+          <ModelScoreCard :assessment="r.modelAssessment" />
+          <p class="source">{{ timingText(r.responseTimeMs) }}</p>
           <div class="right">
-            <button class="open" type="button" @click="report = r">
-              Open
-              <ChevronDown />
-            </button>
+            <button v-if="r.modelAssessment?.analysis.trajectory" class="link" type="button" @click="openTrajectory(r.modelAssessment.analysis.trajectory.id)">Trajectory members</button>
+            <button class="open" type="button" @click="report = r">Full model report <ChevronDown /></button>
           </div>
         </section>
       </article>
     </div>
+
+    <AppModal v-if="trajectoryOpen" title="Trajectory members" @close="closeTrajectory">
+      <p v-if="trajectoryError" role="alert">{{ trajectoryError }}</p>
+      <p v-else-if="!trajectoryDetail" role="status">Loading trajectory…</p>
+      <template v-else>
+        <p>{{ trajectoryDetail.responseCount }} responses · {{ trajectoryDetail.status }} · Latest score {{ formatScore(trajectoryDetail.scores.overall) }}</p>
+        <p class="source">{{ trajectoryDetail.id }} · model {{ trajectoryDetail.modelFingerprint }}</p>
+        <p class="source">Latest state as of {{ new Date(trajectoryDetail.updatedAt).toLocaleString() }}. Members below are in trajectory order.</p>
+        <article v-for="member in trajectoryDetail.members" :key="member.messageId" class="card trajectory-member">
+          <h3>Member {{ member.ordinal }} · Response №{{ member.responseNumber ?? '—' }}</h3>
+          <p>Response score {{ formatScore(member.atomic.overall) }} · Association {{ formatScore(member.associationScore) }} · Link threshold {{ formatScore(member.linkThreshold) }}</p>
+          <MarkdownText :text="member.content" />
+          <button class="link" type="button" @click="emit('jump', member.conversationId, member.messageId); closeTrajectory()">Open response in conversation →</button>
+        </article>
+      </template>
+    </AppModal>
 
     <AppModal v-if="report" :title="`Report — Response №${report.responseNumber}`" @close="report = null">
       <dl class="details">
@@ -168,12 +188,12 @@ watch(
         <dd>{{ report.conversationTitle }} (User {{ report.userId.slice(0, 8) }})</dd>
         <dt>User prompt</dt>
         <dd class="pre">{{ report.prompt || '—' }}</dd>
-        <dt>Risk score</dt>
-        <dd>{{ scoreText(report) }}</dd>
-        <dt>Threshold</dt>
-        <dd>{{ riskThreshold.toFixed(2) }}</dd>
-        <dt>Reason</dt>
-        <dd>{{ report.promptRiskReason ?? 'Pending: not classified yet' }}</dd>
+        <dt>Model analysis</dt>
+        <dd><ModelScoreCard :assessment="report.modelAssessment" expanded /></dd>
+        <dt>Assistant response</dt>
+        <dd><MarkdownText :text="report.content" /></dd>
+        <dt>Legacy prompt score</dt>
+        <dd>{{ report.promptRisk == null ? 'Not scored' : report.promptRisk.toFixed(3) }}</dd>
         <dt>Timing</dt>
         <dd>{{ timingText(report.responseTimeMs) }}</dd>
       </dl>
@@ -378,6 +398,8 @@ h4.big {
 .open:hover {
   background: var(--surface-hover);
 }
+.trajectory-member { margin-top: 12px; font-size: 13px; }
+.trajectory-member h3 { font-size: 14px; }
 .details {
   display: grid;
   grid-template-columns: 110px minmax(0, 1fr);

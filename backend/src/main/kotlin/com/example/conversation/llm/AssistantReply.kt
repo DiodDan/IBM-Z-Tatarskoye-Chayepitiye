@@ -17,26 +17,40 @@ data class AssistantReply(val text: String, val suggestions: List<String>, val r
 @Component
 class AssistantReplyParser {
 
-    private val marker = Regex("""^\s*\[\[\s*suggestions\s*]]\s*:?\s*(.*)$""", setOf(RegexOption.IGNORE_CASE, RegexOption.MULTILINE))
-
-    /** Some free models drop the keyword and wrap the list instead: a LAST line like `[[a | b | c]]`. */
-    private val bareList = Regex("""^\s*\[\[([^\[\]\n]*\|[^\[\]\n]*)]]\s*\z""", RegexOption.MULTILINE)
+    private val marker = Regex("""^\[\[\s*suggestions\s*]]\s*:?\s*(.*)$""", RegexOption.IGNORE_CASE)
+    private val fence = Regex("""^ {0,3}(`{3,}|~{3,})(.*)$""")
 
     fun parse(raw: String): AssistantReply {
         if (raw.isBlank()) throw GenerationFailed()
-        val match = marker.findAll(raw).lastOrNull()
-            ?: bareList.find(raw.trimEnd())
+        val trimmed = raw.trimEnd()
+        val lineStart = trimmed.lastIndexOf('\n') + 1
+        val suffixStart = trimmed.lastIndexOf("[[")
+        if (suffixStart < lineStart) return AssistantReply(raw.trim(), emptyList())
+        val lastLine = trimmed.substring(suffixStart).trim()
+        // Follow-ups are metadata at the end of the final line and outside fenced code.
+        var openFence: String? = null
+        trimmed.substring(0, lineStart).lineSequence().forEach { line ->
+            fence.matchEntire(line)?.let { match ->
+                val run = match.groupValues[1]
+                val current = openFence
+                if (current == null) openFence = run
+                else if (run.first() == current.first() && run.length >= current.length && match.groupValues[2].isBlank()) openFence = null
+            }
+        }
+        if (openFence != null) return AssistantReply(raw.trim(), emptyList())
+        val payload = marker.matchEntire(lastLine)?.groupValues?.get(1)
+            // Some models return [[a | b | c]] or [[a] | b | c ].
+            ?: lastLine.takeIf { it.startsWith("[[") && it.endsWith("]") && '|' in it }?.removePrefix("[[")
             ?: return AssistantReply(raw.trim(), emptyList())
-
-        val text = raw.removeRange(match.range).trim()
-        if (text.isEmpty()) throw GenerationFailed()
-
-        val suggestions = match.groupValues[1]
-            .split('|')
-            .map { it.trim().trim('"', '\'', '*', '-').trim() }
+        val suggestions = payload.split('|')
+            .map { it.trim().trim('[', ']', '"', '\'', '*', '-').trim() }
             .filter { it.isNotEmpty() && it.codePointCount(0, it.length) <= MAX_SUGGESTION_CODE_POINTS }
             .distinct()
             .take(MAX_SUGGESTIONS)
+        // A malformed suffix must not silently remove content without creating any usable action.
+        if (suggestions.isEmpty()) return AssistantReply(raw.trim(), emptyList())
+        val text = trimmed.substring(0, suffixStart).trim()
+        if (text.isEmpty()) throw GenerationFailed()
         return AssistantReply(text, suggestions)
     }
 

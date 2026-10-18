@@ -42,7 +42,7 @@ class ConversationApiMapper {
         MessageResponse(message.id, message.role.apiValue, message.content, message.createdAt,
             message.analysis?.let(::toAnalysis), message.suggestions)
 
-    private fun toAnalysis(value: ResponseAnalysis) = ResponseAnalysisResponse(
+    fun toAnalysis(value: ResponseAnalysis) = ResponseAnalysisResponse(
         value.status.name.lowercase(), value.modelFingerprint, value.atomic?.let(::toScores),
         value.trajectory?.let { TrajectoryAssessmentResponse(it.id, it.responseCount, it.lastPosition,
             it.scores?.let(::toScores), it.associationScore) }, value.errorCode, value.message,

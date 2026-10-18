@@ -1,3 +1,5 @@
+import type { ModelAssessment } from './model'
+
 export type MessageRole = 'user' | 'assistant'
 
 export type MessageStatus = 'allowed' | 'blocked' | 'failed' | 'pending'
@@ -24,6 +26,8 @@ export interface Message {
   status?: MessageStatus
   /** Assistant messages: follow-up prompts proposed by the model. */
   suggestions?: string[]
+  /** Admin-only stored model assessment. */
+  modelAssessment?: ModelAssessment | null
 }
 
 export interface ConversationHistory {

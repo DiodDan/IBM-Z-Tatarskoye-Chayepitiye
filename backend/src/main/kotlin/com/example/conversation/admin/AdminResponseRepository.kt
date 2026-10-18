@@ -21,7 +21,9 @@ data class AdminResponse(
     val promptRisk: Double?,
     val promptRiskReason: String?,
     val responseTimeMs: Long?,
-)
+) {
+    var modelAssessment: AdminModelAssessment? = null
+}
 
 private const val RESPONSE_ROWS = """
     select new com.example.conversation.admin.AdminResponse(
@@ -40,11 +42,29 @@ interface AdminResponseRepository : Repository<Message, UUID> {
     @Query("$RESPONSE_ROWS order by u.promptRiskReason asc nulls last, a.responseNumber desc")
     fun byReason(page: Pageable): List<AdminResponse>
 
-    @Query("$RESPONSE_ROWS order by u.promptRisk asc nulls last, a.responseNumber desc")
-    fun byRiskAscending(page: Pageable): List<AdminResponse>
+    @Query("""
+        select new com.example.conversation.admin.AdminResponse(
+            a.responseNumber, c.id, c.title, owner.externalId, a.id, u.content, a.content, a.createdAt,
+            u.promptRisk, u.promptRiskReason, a.responseTimeMs)
+        from Message a join a.conversation c join c.user owner
+        left join ResponseEmbedding e on e.response = a and e.modelFingerprint = :fingerprint,
+        Message u
+        where a.responseNumber is not null and u.conversation = c and u.sequence = a.sequence - 1
+        order by e.prediction.overallScore asc nulls last, a.responseNumber desc
+    """)
+    fun byRiskAscending(@Param("fingerprint") fingerprint: String?, page: Pageable): List<AdminResponse>
 
-    @Query("$RESPONSE_ROWS order by u.promptRisk desc nulls last, a.responseNumber desc")
-    fun byRiskDescending(page: Pageable): List<AdminResponse>
+    @Query("""
+        select new com.example.conversation.admin.AdminResponse(
+            a.responseNumber, c.id, c.title, owner.externalId, a.id, u.content, a.content, a.createdAt,
+            u.promptRisk, u.promptRiskReason, a.responseTimeMs)
+        from Message a join a.conversation c join c.user owner
+        left join ResponseEmbedding e on e.response = a and e.modelFingerprint = :fingerprint,
+        Message u
+        where a.responseNumber is not null and u.conversation = c and u.sequence = a.sequence - 1
+        order by e.prediction.overallScore desc nulls last, a.responseNumber desc
+    """)
+    fun byRiskDescending(@Param("fingerprint") fingerprint: String?, page: Pageable): List<AdminResponse>
 
     fun findByResponseNumber(responseNumber: Long): Message?
 
