@@ -4,6 +4,7 @@ plugins {
     kotlin("plugin.jpa") version "2.2.21"
     id("org.springframework.boot") version "3.5.15"
     id("io.spring.dependency-management") version "1.1.7"
+    java
 }
 
 group = "com.example"
@@ -17,6 +18,7 @@ kotlin {
     }
 }
 
+val nativeOrtJar = providers.gradleProperty("ortJar")
 allOpen {
     annotation("jakarta.persistence.Entity")
     annotation("jakarta.persistence.MappedSuperclass")
@@ -46,6 +48,10 @@ dependencies {
     runtimeOnly("org.postgresql:postgresql")
     testImplementation("org.springframework.boot:spring-boot-starter-test")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
+    if (nativeOrtJar.isPresent) implementation(files(nativeOrtJar.get()))
+    else implementation("com.microsoft.onnxruntime:onnxruntime:1.23.2")
+    implementation("ai.djl.huggingface:tokenizers:0.36.0")
+    implementation("com.fasterxml.jackson.core:jackson-databind:2.18.3")
 }
 
 tasks.withType<Test> {
@@ -56,3 +62,23 @@ tasks.wrapper {
     gradleVersion = "8.14.3"
     distributionType = Wrapper.DistributionType.BIN
 }
+
+// Runs compiled classes directly; no library packaging/publication step.
+tasks.register<JavaExec>("verifyModel") {
+    classpath = sourceSets.main.get().runtimeClasspath
+    mainClass.set("com.example.conversation.trajectory.ModelVerification")
+    systemProperty("trajectory.verificationReport", layout.buildDirectory.file("reports/trajectory/verification.json").get().asFile.absolutePath)
+    systemProperty("trajectory.requireS390x", providers.gradleProperty("requireS390x").orElse("false").get())
+    val bundle = providers.gradleProperty("bundle").orElse("src/main/resources/trajectory")
+    args(file(bundle.get()).absolutePath, providers.gradleProperty("threads").orElse("3").get())
+    if (providers.gradleProperty("verifyResources").isPresent) {
+        classpath += files(providers.gradleProperty("resourcesJar").map { file(it) }.getOrElse(file(bundle.get()).parentFile))
+        systemProperty("trajectory.verifyResources", "true")
+    }
+}
+
+tasks.bootJar {
+    archiveFileName.set("app.jar")
+}
+
+tasks.jar { enabled = false }
