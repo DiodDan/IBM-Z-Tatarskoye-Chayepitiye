@@ -1,6 +1,6 @@
 package com.example.conversation.conversation.application
 
-import com.example.conversation.error.ApiException
+import com.example.conversation.error.ConversationBusy
 import org.springframework.stereotype.Component
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
@@ -18,7 +18,7 @@ class ConversationMutationGuard {
     private val busy: MutableSet<UUID> = ConcurrentHashMap.newKeySet()
 
     fun <T> runExclusive(conversationId: UUID, action: () -> T): T {
-        if (!busy.add(conversationId)) throw ApiException.conversationBusy()
+        if (!busy.add(conversationId)) throw ConversationBusy()
         try {
             return action()
         } finally {

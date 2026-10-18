@@ -1,6 +1,9 @@
 package com.example.conversation.llm
 
-import com.example.conversation.error.ApiException
+import com.example.conversation.error.ApplicationFailure
+import com.example.conversation.error.GenerationFailed
+import com.example.conversation.error.GenerationTimeout
+import com.example.conversation.error.GenerationUnavailable
 import org.slf4j.LoggerFactory
 import org.springframework.ai.chat.client.ChatClient
 import org.springframework.ai.chat.messages.AssistantMessage
@@ -14,6 +17,7 @@ import java.net.ConnectException
 import java.net.SocketTimeoutException
 import java.net.UnknownHostException
 import java.net.http.HttpTimeoutException
+import org.springframework.web.client.RestClientResponseException
 
 /**
  * Calls the model on OpenRouter through Spring AI's ChatClient (OpenAI-compatible API), synchronously.
@@ -46,7 +50,7 @@ class SpringAiLlmGateway(
         } catch (e: Exception) {
             throw classify(e)
         }
-        if (reply.isNullOrBlank()) throw ApiException.generationFailed()
+        if (reply.isNullOrBlank()) throw GenerationFailed()
         return reply.trim()
     }
 
@@ -60,25 +64,25 @@ class SpringAiLlmGateway(
      * 504 = timeout, 503 = OpenRouter unreachable or refusing us (bad key, no credits, rate limit,
      * unknown model), 502 = anything else. The log line says which, so you can fix .env.
      */
-    private fun classify(e: Exception): ApiException {
+    private fun classify(e: Exception): ApplicationFailure {
         for (cause in generateSequence<Throwable>(e) { it.cause }) {
             when (cause) {
-                is SocketTimeoutException, is HttpTimeoutException -> return ApiException.generationTimeout(e)
-                is ConnectException, is UnknownHostException -> return ApiException.modelUnavailable(e)
+                is SocketTimeoutException, is HttpTimeoutException -> return GenerationTimeout(e)
+                is ConnectException, is UnknownHostException -> return GenerationUnavailable(e)
             }
-            val message = cause.message.orEmpty()
-            val hint = when {
-                "401" in message || "403" in message -> "OpenRouter rejected the API key (check OPENROUTER_API_KEY)"
-                "402" in message -> "OpenRouter account has no credits left (or use a :free model)"
-                "429" in message -> "OpenRouter rate limit reached (free models are heavily limited)"
-                "404" in message || "not a valid model" in message -> "Unknown model (check OPENROUTER_MODEL)"
+            val status = when (cause) {
+                is ProviderHttpFailure -> cause.status
+                is RestClientResponseException -> cause.statusCode.value()
                 else -> null
             }
-            if (hint != null) {
-                log.warn("LLM call refused: {}", hint)
-                return ApiException.modelUnavailable(e)
+            if (status != null) {
+                if (status in setOf(401, 402, 403, 404, 429) || status >= 500) {
+                    log.warn("LLM provider refused request: status={}", status)
+                    return GenerationUnavailable(e)
+                }
+                return GenerationFailed(e)
             }
         }
-        return ApiException.generationFailed(e)
+        return GenerationFailed(e)
     }
 }

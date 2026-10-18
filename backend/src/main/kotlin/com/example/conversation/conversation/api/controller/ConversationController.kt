@@ -1,4 +1,6 @@
-package com.example.conversation.conversation.api
+package com.example.conversation.conversation.api.controller
+
+import com.example.conversation.conversation.api.mapper.ConversationApiMapper
 
 import com.example.conversation.conversation.api.dto.ConversationHistoryResponse
 import com.example.conversation.conversation.api.dto.ConversationListResponse
@@ -41,7 +43,7 @@ class ConversationController(
 
     @GetMapping("/{conversationId}")
     fun get(user: CurrentUser, @PathVariable conversationId: UUID): ConversationHistoryResponse =
-        mapper.toHistory(queries.history(user.externalId, conversationId))
+        mapper.toHistory(queries.conversationSnapshot(user.externalId, conversationId))
 
     @PostMapping("/{conversationId}/messages")
     fun send(

@@ -52,15 +52,16 @@ dependencies {
     implementation("com.fasterxml.jackson.module:jackson-module-kotlin")
     runtimeOnly("org.postgresql:postgresql")
     testImplementation("org.springframework.boot:spring-boot-starter-test")
-    testRuntimeOnly("org.junit.platform:junit-platform-launcher")
+    testRuntimeOnly("com.h2database:h2:2.2.224")
     if (nativeOrtJar.isPresent) implementation(files(nativeOrtJar.get()))
     else implementation("com.microsoft.onnxruntime:onnxruntime:1.23.2")
     implementation("ai.djl.huggingface:tokenizers:0.36.0")
-    implementation("com.fasterxml.jackson.core:jackson-databind:2.18.3")
 }
 
 tasks.withType<Test> {
-    useJUnitPlatform()
+    useJUnitPlatform {
+        if (providers.gradleProperty("skipOnnx").isPresent) excludeTags("onnx")
+    }
 }
 
 tasks.wrapper {
@@ -72,12 +73,16 @@ tasks.wrapper {
 tasks.register<JavaExec>("verifyModel") {
     classpath = sourceSets.main.get().runtimeClasspath
     mainClass.set("com.example.conversation.trajectory.ModelVerification")
-    systemProperty("trajectory.verificationReport", layout.buildDirectory.file("reports/trajectory/verification.json").get().asFile.absolutePath)
+    systemProperty(
+        "trajectory.verificationReport",
+        layout.buildDirectory.file("reports/trajectory/verification.json").get().asFile.absolutePath
+    )
     systemProperty("trajectory.requireS390x", providers.gradleProperty("requireS390x").orElse("false").get())
     val bundle = providers.gradleProperty("bundle").orElse("src/main/resources/trajectory")
     args(file(bundle.get()).absolutePath, providers.gradleProperty("threads").orElse("3").get())
     if (providers.gradleProperty("verifyResources").isPresent) {
-        classpath += files(providers.gradleProperty("resourcesJar").map { file(it) }.getOrElse(file(bundle.get()).parentFile))
+        classpath += files(providers.gradleProperty("resourcesJar").map { file(it) }
+            .getOrElse(file(bundle.get()).parentFile))
         systemProperty("trajectory.verifyResources", "true")
     }
 }

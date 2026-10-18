@@ -13,8 +13,6 @@ data class ConversationPreviewResponse(
     val id: UUID,
     val title: String,
     val createdAt: Instant,
-    /** Shortened newest message for the sidebar; null for a conversation without messages. */
-    val lastMessage: String?,
 )
 
 data class ConversationListResponse(
@@ -28,10 +26,39 @@ data class MessageResponse(
     val role: String,
     val content: String,
     val createdAt: Instant,
-    // promptRisk is deliberately NOT here: it is stored, but only for the (future) admin API, never for users.
-    /** Assistant messages only: follow-up prompts proposed by the model (0-3). Always empty for user. */
-    val suggestions: List<String>,
+    val analysis: ResponseAnalysisResponse? = null,
 )
+
+data class RiskScoresResponse(
+    val overall: Float,
+    val categories: Map<String, Float>,
+    val calibrationId: String,
+    val calibrationApplied: Boolean,
+)
+
+data class TrajectoryAssessmentResponse(
+    val id: UUID,
+    val responseCount: Int,
+    val lastPosition: Long,
+    val scores: RiskScoresResponse?,
+    val associationScore: Float?,
+)
+
+data class ResponseAnalysisResponse(
+    val status: String,
+    val modelFingerprint: String?,
+    val atomic: RiskScoresResponse?,
+    val trajectory: TrajectoryAssessmentResponse?,
+    val errorCode: String?,
+    val message: String?,
+    val coverage: ResponseCoverageResponse?,
+    val windowPeak: WindowPeakResponse?,
+    val failedResponseId: UUID?,
+)
+
+data class ResponseCoverageResponse(val status: String, val totalTokens: Int, val processedTokens: Int, val windowCount: Int)
+data class TokenRangeResponse(val start: Int, val end: Int)
+data class WindowPeakResponse(val scores: RiskScoresResponse, val peakTokenRanges: Map<String, TokenRangeResponse>)
 
 data class ConversationHistoryResponse(
     val conversation: ConversationPreviewResponse,

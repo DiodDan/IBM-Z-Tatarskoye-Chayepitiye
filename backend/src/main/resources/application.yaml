@@ -25,6 +25,14 @@ spring:
           model: ${OPENROUTER_MODEL:}
 
 app:
+  trajectory:
+    enabled: ${TRAJECTORY_ENABLED:true}
+    resource-prefix: trajectory
+    threads: ${TRAJECTORY_THREADS:3}
+    link-threshold: ${TRAJECTORY_LINK_THRESHOLD:0.8}
+    max-active: 64
+    max-responses-per-request: 32
+    ttl: 24h
   llm:
     provider: openrouter
   chat:
