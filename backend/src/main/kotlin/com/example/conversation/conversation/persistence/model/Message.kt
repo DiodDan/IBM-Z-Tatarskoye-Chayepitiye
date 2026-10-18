@@ -43,6 +43,14 @@ class Message(
     @Column(name = "prompt_risk")
     val promptRisk: Double? = null,
 
+    /** The classifier's explanation for promptRisk. Null when not classified; always null for assistant rows. */
+    @Column(name = "prompt_risk_reason", columnDefinition = "text")
+    val promptRiskReason: String? = null,
+
+    /** How long the model took to produce this reply, in ms. Assistant rows only. */
+    @Column(name = "response_time_ms")
+    val responseTimeMs: Long? = null,
+
     /** Follow-up prompts proposed by the model; empty for user rows. */
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(nullable = false, columnDefinition = "jsonb")

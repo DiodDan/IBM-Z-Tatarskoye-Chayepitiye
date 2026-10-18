@@ -27,4 +27,13 @@ interface MessageRepository : JpaRepository<Message, UUID> {
         """,
     )
     fun findLatestPerConversation(@Param("owner") owner: UUID): List<Message>
+
+    /** ADMIN ONLY: the newest message of every conversation of every user. */
+    @Query(
+        """
+        select m from Message m
+        where m.sequence = (select max(m2.sequence) from Message m2 where m2.conversation = m.conversation)
+        """,
+    )
+    fun findLatestOfAllConversations(): List<Message>
 }

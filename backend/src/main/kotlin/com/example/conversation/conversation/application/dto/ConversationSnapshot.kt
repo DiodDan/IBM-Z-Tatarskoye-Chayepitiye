@@ -20,6 +20,8 @@ data class MessageSnapshot(
     val content: String,
     val createdAt: Instant,
     val promptRisk: Double?,
+    val promptRiskReason: String?,
+    val responseTimeMs: Long?,
     val suggestions: List<String>,
 )
 

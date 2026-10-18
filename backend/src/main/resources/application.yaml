@@ -29,6 +29,9 @@ app:
     provider: openrouter
   chat:
     system-prompt: classpath:prompts/system.txt
+  admin:
+    # Prompt risk at or above this is shown as high risk on the admin page (0..1).
+    risk-threshold: 0.5
 
 management:
   endpoints:

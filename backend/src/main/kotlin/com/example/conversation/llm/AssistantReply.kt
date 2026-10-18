@@ -3,8 +3,11 @@ package com.example.conversation.llm
 import com.example.conversation.error.ApiException
 import org.springframework.stereotype.Component
 
-/** The model's answer split into the text shown to the user and the follow-up chips. */
-data class AssistantReply(val text: String, val suggestions: List<String>)
+/**
+ * The model's answer split into the text shown to the user and the follow-up chips.
+ * `responseTimeMs` is how long the model call took (admin-only), set by the caller that timed it.
+ */
+data class AssistantReply(val text: String, val suggestions: List<String>, val responseTimeMs: Long? = null)
 
 /**
  * The system prompt asks the model to end its answer with one line:

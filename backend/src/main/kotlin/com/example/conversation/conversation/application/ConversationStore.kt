@@ -13,6 +13,7 @@ import com.example.conversation.conversation.persistence.repository.MessageRepos
 import com.example.conversation.error.ApiException
 import com.example.conversation.identity.service.UserService
 import com.example.conversation.llm.AssistantReply
+import com.example.conversation.risk.PromptRiskAssessment
 import jakarta.persistence.EntityManager
 import org.springframework.data.domain.PageRequest
 import org.springframework.stereotype.Component
@@ -83,14 +84,14 @@ class ConversationStore(
         owner: UUID,
         title: String,
         userText: String,
-        promptRisk: Double?,
+        risk: PromptRiskAssessment?,
         reply: AssistantReply,
     ): MessageExchange {
         val user = userService.findOrCreate(owner)
         val now = Instant.now(clock)
         val conversation = Conversation(UUID.randomUUID(), user, title, now)
         conversations.save(conversation)
-        return insertPair(conversation, firstSequence = 1, userText, promptRisk, reply, now)
+        return insertPair(conversation, firstSequence = 1, userText, risk, reply, now)
     }
 
     /**
@@ -103,13 +104,13 @@ class ConversationStore(
         conversationId: UUID,
         expectedMaxSequence: Long,
         userText: String,
-        promptRisk: Double?,
+        risk: PromptRiskAssessment?,
         reply: AssistantReply,
     ): MessageExchange {
         val conversation = findOwned(owner, conversationId)
         val currentMax = messages.findMaxSequence(conversationId)
         if (currentMax != expectedMaxSequence) throw ApiException.conversationBusy()
-        return insertPair(conversation, firstSequence = currentMax + 1, userText, promptRisk, reply, Instant.now(clock))
+        return insertPair(conversation, firstSequence = currentMax + 1, userText, risk, reply, Instant.now(clock))
     }
 
     @Transactional
@@ -132,17 +133,19 @@ class ConversationStore(
         conversation: Conversation,
         firstSequence: Long,
         userText: String,
-        promptRisk: Double?,
+        risk: PromptRiskAssessment?,
         reply: AssistantReply,
         now: Instant,
     ): MessageExchange {
         val userMessage = Message(
             UUID.randomUUID(), conversation, firstSequence, MessageRole.USER, userText, now,
-            promptRisk = promptRisk,
+            promptRisk = risk?.score,
+            promptRiskReason = risk?.reason,
         )
         val assistantMessage = Message(
             UUID.randomUUID(), conversation, firstSequence + 1, MessageRole.ASSISTANT, reply.text, now,
             suggestions = reply.suggestions,
+            responseTimeMs = reply.responseTimeMs,
         )
         messages.save(userMessage)
         messages.save(assistantMessage)
@@ -167,7 +170,9 @@ class ConversationStore(
         return normalized.substring(0, end).trimEnd() + "…"
     }
 
-    private fun Message.toSnapshot() = MessageSnapshot(id, role, content, createdAt, promptRisk, suggestions.toList())
+    private fun Message.toSnapshot() = MessageSnapshot(
+        id, role, content, createdAt, promptRisk, promptRiskReason, responseTimeMs, suggestions.toList(),
+    )
 
     private companion object {
         const val PREVIEW_CODE_POINTS = 120

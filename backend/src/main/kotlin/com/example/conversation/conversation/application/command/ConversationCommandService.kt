@@ -7,9 +7,12 @@ import com.example.conversation.conversation.application.ConversationTitleFactor
 import com.example.conversation.conversation.application.dto.ConversationPreview
 import com.example.conversation.conversation.application.dto.MessageExchange
 import com.example.conversation.error.ApiException
+import com.example.conversation.llm.AssistantReply
 import com.example.conversation.llm.AssistantReplyParser
 import com.example.conversation.llm.LlmGateway
 import com.example.conversation.llm.PromptFactory
+import com.example.conversation.llm.PromptMessage
+import com.example.conversation.risk.PromptRiskAssessment
 import com.example.conversation.risk.PromptRiskClassifier
 import org.springframework.stereotype.Service
 import java.util.UUID
@@ -34,8 +37,8 @@ class ConversationCommandService(
     fun create(owner: UUID, rawContent: String): MessageExchange {
         val content = validateContent(rawContent)
         val title = titleFactory.fromFirstMessage(content)
-        val risk = scoreRisk(content)
-        val reply = replyParser.parse(llm.generate(promptFactory.build(history = emptyList(), currentInput = content)))
+        val risk = assessRisk(content)
+        val reply = generateReply(promptFactory.build(history = emptyList(), currentInput = content))
         return store.createWithExchange(owner, title, content, risk, reply)
     }
 
@@ -45,8 +48,8 @@ class ConversationCommandService(
         ensureOwned(owner, conversationId)
         return guard.runExclusive(conversationId) {
             val context = store.readContext(owner, conversationId, properties.contextExchanges * 2)
-            val risk = scoreRisk(content)
-            val reply = replyParser.parse(llm.generate(promptFactory.build(context.recentMessages, content)))
+            val risk = assessRisk(content)
+            val reply = generateReply(promptFactory.build(context.recentMessages, content))
             store.appendExchange(owner, conversationId, context.maxSequence, content, risk, reply)
         }
     }
@@ -67,8 +70,18 @@ class ConversationCommandService(
     }
 
     /** Out-of-range or non-finite scores are dropped (stored as "not classified") instead of failing the send. */
-    private fun scoreRisk(content: String): Double? =
-        riskClassifier.score(content)?.takeIf { it.isFinite() && it in 0.0..1.0 }
+    private fun assessRisk(content: String): PromptRiskAssessment? =
+        riskClassifier.classify(content)
+            ?.takeIf { it.score.isFinite() && it.score in 0.0..1.0 }
+            ?.let { it.copy(reason = it.reason?.trim()?.takeIf(String::isNotEmpty)) }
+
+    /** Calls the model and records how long it took (shown on the admin page as "Timing"). */
+    private fun generateReply(prompt: List<PromptMessage>): AssistantReply {
+        val started = System.nanoTime()
+        val raw = llm.generate(prompt)
+        val elapsedMs = (System.nanoTime() - started) / 1_000_000
+        return replyParser.parse(raw).copy(responseTimeMs = elapsedMs)
+    }
 
     private fun ensureOwned(owner: UUID, conversationId: UUID) {
         if (!store.isOwned(owner, conversationId)) throw ApiException.conversationNotFound()
