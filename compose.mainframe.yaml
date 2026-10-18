@@ -41,7 +41,7 @@ services:
       # First deployment is a local echo smoke test; set APP_PROFILE=default for OpenRouter.
       SPRING_PROFILES_ACTIVE: ${APP_PROFILE:-echo}
     ports:
-      - "127.0.0.1:${APP_PORT:-8080}:8080"
+      - "${APP_BIND_ADDRESS:-127.0.0.1}:${APP_PORT:-8080}:8080"
     mem_limit: 5g
 
 volumes:

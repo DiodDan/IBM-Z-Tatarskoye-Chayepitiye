@@ -230,3 +230,17 @@ Official references:
 - [Pinned DJL native loading and RUST_LIBRARY_PATH](https://github.com/deepjavalibrary/djl/blob/v0.36.0/extensions/tokenizers/src/main/java/ai/djl/huggingface/tokenizers/jni/LibUtils.java)
 - [DJL tokenizer build](https://github.com/deepjavalibrary/djl/blob/v0.36.0/extensions/tokenizers/build.sh)
 - [IBM zDLC](https://github.com/IBM/zDLC)
+
+To serve the app directly at the server IP instead of using the SSH tunnel, set
+`APP_BIND_ADDRESS=0.0.0.0` in the server's `.env` and recreate only the app:
+
+```bash
+docker compose -f compose.mainframe.yaml up -d --no-build --wait app
+docker compose -f compose.mainframe.yaml ps
+```
+
+Open `http://148.100.78.86:8080/` for this server. The app port should show
+`0.0.0.0:8080->8080/tcp`; PostgreSQL remains bound to localhost. If the local
+health check passes but external access still fails, check the server firewall
+and hosting network rules for inbound TCP 8080. Set `APP_BIND_ADDRESS=127.0.0.1`
+and recreate the app again to restore access through SSH only.
