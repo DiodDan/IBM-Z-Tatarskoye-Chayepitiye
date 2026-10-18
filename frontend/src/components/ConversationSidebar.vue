@@ -17,6 +17,8 @@ const props = defineProps<{
   disabled: boolean
   error: string | null
   theme: Theme
+  /** Admin view: no new/rename/delete. */
+  readonly?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -43,7 +45,9 @@ const filtered = computed(() => {
     <header class="brand">
       <span class="cpu-tile"><Chip /></span>
       <span class="name">AI Chat</span>
+      <span v-if="readonly" class="admin-tag">Admin</span>
       <button
+        v-else
         class="btn icon-only add"
         type="button"
         aria-label="New conversation"
@@ -76,6 +80,7 @@ const filtered = computed(() => {
         :conversation="conversation"
         :active="conversation.id === activeConversationId"
         :disabled="disabled"
+        :readonly="readonly"
         @select="(id) => emit('select', id)"
         @rename="(id, title) => emit('rename', id, title)"
         @delete="(id) => emit('delete', id)"
@@ -112,6 +117,17 @@ const filtered = computed(() => {
 .add {
   margin-left: auto;
   background: var(--surface-hover);
+}
+.admin-tag {
+  margin-left: auto;
+  padding: 1px 8px;
+  border-radius: 10px;
+  background: var(--chip);
+  color: var(--chip-text);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
 }
 .search {
   display: flex;

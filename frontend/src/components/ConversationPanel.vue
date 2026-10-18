@@ -18,6 +18,12 @@ const props = defineProps<{
   error: string | null
   sendError: string | null
   onSend: (content: string) => Promise<boolean>
+  /** Admin view: no New Chat, composer locked, suggestions not clickable. */
+  readonly?: boolean
+  /** Admin view: show the user-prompt risk under each reply. */
+  showRisk?: boolean
+  /** Admin view: extra header badge, e.g. the conversation owner's anonymous id. */
+  ownerLabel?: string | null
 }>()
 
 const emit = defineEmits<{
@@ -66,6 +72,7 @@ defineExpose({ focusComposer })
         <span class="chat-tile"><Chat /></span>
         <h1>{{ conversation?.title ?? 'New conversation' }}</h1>
         <span class="badge">AI Assistant</span>
+        <span v-if="ownerLabel" class="badge" :title="ownerLabel">{{ ownerLabel }}</span>
       </div>
 
       <div class="actions">
@@ -73,10 +80,11 @@ defineExpose({ focusComposer })
           <Share />
           <span>Share</span>
         </button>
-        <button class="btn primary" type="button" @click="emit('newConversation')">
+        <button v-if="!readonly" class="btn primary" type="button" @click="emit('newConversation')">
           <AddAlt />
           New Chat
         </button>
+        <slot name="actions" />
         <!-- Not available yet: visible but disabled. -->
         <button class="btn icon-only" type="button" disabled aria-label="Settings (coming soon)" title="Coming soon">
           <Settings />
@@ -88,10 +96,23 @@ defineExpose({ focusComposer })
     <p v-else-if="isLoadingHistory" class="state">Loading conversation…</p>
     <div v-else-if="messages.length === 0 && !isSending" class="state empty">
       <span class="cpu-tile big"><Chip /></span>
-      <h2>How can I help you today?</h2>
-      <p>Ask a question, explore an idea, or work through a problem.</p>
+      <template v-if="readonly">
+        <h2>Nothing to review yet</h2>
+        <p>Select a conversation on the left. Users' chats appear here as soon as they send a message.</p>
+      </template>
+      <template v-else>
+        <h2>How can I help you today?</h2>
+        <p>Ask a question, explore an idea, or work through a problem.</p>
+      </template>
     </div>
-    <MessageList v-else :messages="messages" :is-waiting-for-reply="isSending" @suggest="onSend" />
+    <MessageList
+      v-else
+      :messages="messages"
+      :is-waiting-for-reply="isSending"
+      :readonly="readonly"
+      :show-risk="showRisk"
+      @suggest="onSend"
+    />
 
     <MessageComposer
       ref="composer"
@@ -99,6 +120,7 @@ defineExpose({ focusComposer })
       :error="sendError"
       :notice="notice"
       :on-send="onSend"
+      :readonly="readonly"
     />
   </section>
 </template>

@@ -9,6 +9,8 @@ const props = defineProps<{
   error: string | null
   notice: string | null
   onSend: (content: string) => Promise<boolean>
+  /** Admin view: visible but nothing can be typed or sent. */
+  readonly?: boolean
 }>()
 
 const draft = ref('')
@@ -25,7 +27,7 @@ watch(draft, async () => {
 })
 
 async function submit() {
-  if (props.disabled || !draft.value.trim()) return
+  if (props.readonly || props.disabled || !draft.value.trim()) return
   const sent = await props.onSend(draft.value)
   if (sent) draft.value = ''
 }
@@ -56,14 +58,19 @@ defineExpose({ focus: () => textarea.value?.focus() })
           v-model="draft"
           rows="1"
           maxlength="20000"
-          placeholder="Type a message… · Enter to send · Shift+Enter for new line"
+          :disabled="readonly"
+          :placeholder="
+            readonly
+              ? 'Read-only admin view · admins can’t send messages'
+              : 'Type a message… · Enter to send · Shift+Enter for new line'
+          "
           aria-label="Message"
           @keydown="onKeydown"
         />
         <button type="button" class="tool" disabled aria-label="Voice input (coming soon)" title="Coming soon">
           <Microphone />
         </button>
-        <button class="send" type="submit" :disabled="disabled || !draft.trim()" aria-label="Send message">
+        <button class="send" type="submit" :disabled="readonly || disabled || !draft.trim()" aria-label="Send message">
           <Send />
         </button>
       </form>

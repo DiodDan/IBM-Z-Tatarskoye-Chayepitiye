@@ -6,6 +6,8 @@ const props = defineProps<{
   conversation: ConversationPreview
   active: boolean
   disabled: boolean
+  /** Admin view: no rename/delete. */
+  readonly?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -63,7 +65,7 @@ function confirmDelete() {
       <small v-if="conversation.lastMessage">{{ conversation.lastMessage }}</small>
     </button>
 
-    <div v-if="active && !isEditing" class="actions">
+    <div v-if="active && !isEditing && !readonly" class="actions">
       <button type="button" :disabled="disabled" @click="startEditing">Rename</button>
       <button type="button" :disabled="disabled" @click="confirmDelete">Delete</button>
     </div>
@@ -110,7 +112,7 @@ small {
 .active small {
   color: var(--selected-muted);
 }
-.active .link {
+.active .link:not(:last-child) {
   padding-bottom: 4px;
 }
 .actions {

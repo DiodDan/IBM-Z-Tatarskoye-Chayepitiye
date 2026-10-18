@@ -6,6 +6,10 @@ import type { Message } from '../types/api'
 const props = defineProps<{
   messages: Message[]
   isWaitingForReply: boolean
+  /** Admin view: suggestions can't be clicked. */
+  readonly?: boolean
+  /** Admin view: show each reply's user-prompt risk (messages must carry `promptRisk`). */
+  showRisk?: boolean
 }>()
 
 const emit = defineEmits<{ suggest: [text: string] }>()
@@ -25,17 +29,21 @@ interface Row {
   message: Message
   /** Divider time shown above this message, when it starts a session. */
   session: Date | null
+  /** Assistant rows (admin only): risk of the user prompt it answers. */
+  promptRisk: number | null
 }
 
 const rows = computed<Row[]>(() => {
   let previousTime = -Infinity
+  let lastUserRisk: number | null = null
   const result: Row[] = props.messages.map((message) => {
     const time = Date.parse(message.createdAt)
     const session = time - previousTime >= SESSION_GAP_MS ? new Date(time) : null
     previousTime = time
-    return { message, session }
+    if (message.role === 'user') lastUserRisk = (message as { promptRisk?: number | null }).promptRisk ?? null
+    return { message, session, promptRisk: message.role === 'assistant' ? lastUserRisk : null }
   })
-  if (props.isWaitingForReply) result.push({ message: placeholder, session: null })
+  if (props.isWaitingForReply) result.push({ message: placeholder, session: null, promptRisk: null })
   return result
 })
 
@@ -68,7 +76,9 @@ watch(
         </div>
         <MessageBubble
           :message="row.message"
-          :suggestions-disabled="isWaitingForReply"
+          :suggestions-disabled="isWaitingForReply || readonly === true"
+          :show-risk="showRisk"
+          :prompt-risk="row.promptRisk"
           @suggest="(text) => emit('suggest', text)"
         />
       </template>

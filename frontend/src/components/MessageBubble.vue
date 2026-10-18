@@ -6,6 +6,9 @@ import type { Message } from '../types/api'
 const props = defineProps<{
   message: Message
   suggestionsDisabled: boolean
+  /** Admin view only: show the risk of the user prompt this reply answers. */
+  showRisk?: boolean
+  promptRisk?: number | null
 }>()
 
 const emit = defineEmits<{ suggest: [text: string] }>()
@@ -13,6 +16,11 @@ const emit = defineEmits<{ suggest: [text: string] }>()
 const status = computed(() => props.message.status ?? 'allowed')
 const isUser = computed(() => props.message.role === 'user')
 const paragraphs = computed(() => props.message.content.split(/\n\s*\n/))
+
+const riskLabel = computed(() => {
+  const risk = props.promptRisk
+  return typeof risk === 'number' ? `${risk.toFixed(2)} / 1` : 'Pending'
+})
 </script>
 
 <template>
@@ -51,6 +59,9 @@ const paragraphs = computed(() => props.message.content.split(/\n\s*\n/))
           </button>
         </div>
       </div>
+
+      <!-- Admin only. Scores the USER prompt above, not this reply. -->
+      <div v-if="showRisk" class="risk">User prompt risk · {{ riskLabel }}</div>
     </div>
   </article>
 </template>
@@ -154,6 +165,13 @@ const paragraphs = computed(() => props.message.content.split(/\n\s*\n/))
 }
 .suggestions button:hover:not(:disabled) {
   background: var(--chip-hover);
+}
+.risk {
+  grid-column: 2;
+  margin-top: 6px;
+  text-align: right;
+  font-size: 10px;
+  color: var(--text-muted);
 }
 @media (max-width: 720px) {
   .grid {
