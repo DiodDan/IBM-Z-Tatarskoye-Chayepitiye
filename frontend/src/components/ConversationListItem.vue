@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { nextTick, ref } from 'vue'
+import { nextTick, ref, watch } from 'vue'
 import type { ConversationPreview } from '../types/api'
 
 const props = defineProps<{
@@ -8,6 +8,9 @@ const props = defineProps<{
   disabled: boolean
   /** Admin view: no rename/delete. */
   readonly?: boolean
+  /** Admin view: this is the conversation a highlighted response comes from; replays whenever flashKey changes. */
+  flash?: boolean
+  flashKey?: number
 }>()
 
 const emit = defineEmits<{
@@ -19,6 +22,21 @@ const emit = defineEmits<{
 const isEditing = ref(false)
 const draftTitle = ref('')
 const input = ref<HTMLInputElement | null>(null)
+const root = ref<HTMLElement | null>(null)
+
+// Restart the flash animation and bring the item into view each time a response from it is shown.
+const isFlashing = ref(false)
+watch(
+  () => [props.flash, props.flashKey],
+  async () => {
+    if (!props.flash) return
+    isFlashing.value = false
+    await nextTick()
+    isFlashing.value = true
+    root.value?.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
+  },
+  { immediate: true },
+)
 
 async function startEditing() {
   draftTitle.value = props.conversation.title
@@ -40,7 +58,7 @@ function confirmDelete() {
 </script>
 
 <template>
-  <li class="item" :class="{ active }">
+  <li ref="root" class="item" :class="{ active, flashing: flash && isFlashing }">
     <input
       v-if="isEditing"
       ref="input"
@@ -83,6 +101,21 @@ function confirmDelete() {
 .item.active {
   background: var(--selected);
   color: var(--selected-text);
+}
+/* Admin: "this response came from here" — a glowing ring that pulses, then stays as a thin outline. */
+.item.flashing {
+  outline: 2px solid var(--highlight);
+  outline-offset: -2px;
+  animation: flash 1.6s ease-out;
+}
+@keyframes flash {
+  0%,
+  40% {
+    box-shadow: 0 0 0 4px var(--highlight-glow);
+  }
+  100% {
+    box-shadow: 0 0 0 0 transparent;
+  }
 }
 .link {
   display: block;

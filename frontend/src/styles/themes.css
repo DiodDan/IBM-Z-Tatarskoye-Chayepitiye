@@ -23,6 +23,10 @@
   --selected-muted: #8a838e;
   --shadow: 0 1px 3px rgb(41 38 45 / 0.08), 0 4px 14px rgb(41 38 45 / 0.05);
   --danger: #b3261e;
+  /* Admin page: the response being inspected and the conversation it comes from. */
+  --highlight: #b0477f;
+  --highlight-glow: rgb(176 71 127 / 0.28);
+  --highlight-bg: #fbeff6;
 }
 
 :root[data-theme='dark'] {
@@ -49,4 +53,7 @@
   --selected-muted: #d6b8cc;
   --shadow: none;
   --danger: #f2a7a2;
+  --highlight: #e08cbd;
+  --highlight-glow: rgb(224 140 189 / 0.3);
+  --highlight-bg: #3a2733;
 }

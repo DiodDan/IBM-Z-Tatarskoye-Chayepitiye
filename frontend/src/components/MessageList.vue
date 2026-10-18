@@ -10,6 +10,9 @@ const props = defineProps<{
   readonly?: boolean
   /** Admin view: show each reply's user-prompt risk (messages must carry `promptRisk`). */
   showRisk?: boolean
+  /** Admin view: message to highlight and scroll to; scrolls again whenever `highlightKey` changes. */
+  highlightId?: string | null
+  highlightKey?: number
 }>()
 
 const emit = defineEmits<{ suggest: [text: string] }>()
@@ -55,14 +58,21 @@ function formatSession(date: Date): string {
 
 const container = ref<HTMLElement | null>(null)
 
+// New messages: scroll to the bottom — unless a highlighted message should stay in view.
 watch(
-  () => [props.messages.length, props.isWaitingForReply],
+  () => [props.messages.length, props.isWaitingForReply, props.highlightId, props.highlightKey],
   async () => {
     await nextTick()
-    container.value?.scrollTo({ top: container.value.scrollHeight, behavior: 'smooth' })
+    const target = props.highlightId
+      ? container.value?.querySelector<HTMLElement>(`[data-message-id="${props.highlightId}"]`)
+      : null
+    if (target) target.scrollIntoView({ block: 'center', behavior: 'smooth' })
+    else container.value?.scrollTo({ top: container.value.scrollHeight, behavior: 'smooth' })
   },
   { immediate: true },
 )
+
+const responseNumberOf = (message: Message) => (message as { responseNumber?: number | null }).responseNumber ?? null
 </script>
 
 <template>
@@ -79,6 +89,8 @@ watch(
           :suggestions-disabled="isWaitingForReply || readonly === true"
           :show-risk="showRisk"
           :prompt-risk="row.promptRisk"
+          :response-number="responseNumberOf(row.message)"
+          :highlighted="!!highlightId && row.message.id === highlightId"
           @suggest="(text) => emit('suggest', text)"
         />
       </template>

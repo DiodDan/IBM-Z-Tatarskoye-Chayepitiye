@@ -1,106 +1,51 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { nextTick, ref, watch } from 'vue'
 import Checkmark from '@carbon/icons-vue/es/checkmark/16'
 import ChevronDown from '@carbon/icons-vue/es/chevron--down/16'
 import Copy from '@carbon/icons-vue/es/copy/16'
+import Renew from '@carbon/icons-vue/es/renew/16'
 import SidePanelClose from '@carbon/icons-vue/es/side-panel--close/16'
 import AppModal from './AppModal.vue'
-import type { AdminMessage } from '../types/admin'
+import type { AdminResponse, ResponseSort } from '../types/admin'
 
 const props = defineProps<{
-  messages: AdminMessage[]
+  /** AI replies from every conversation, already sorted by the server. */
+  responses: AdminResponse[]
   riskThreshold: number
+  sort: ResponseSort
   isLoading: boolean
+  error: string | null
+  /** The reply currently highlighted in the chat. */
+  activeMessageId: string | null
 }>()
 
-const emit = defineEmits<{ close: [] }>()
+const emit = defineEmits<{
+  close: []
+  refresh: []
+  changeSort: [sort: ResponseSort]
+  show: [response: AdminResponse]
+}>()
 
-/** One AI reply together with the user prompt it answers and that prompt's risk data. */
-interface ResponseEntry {
-  number: number
-  prompt: string
-  text: string
-  status: AdminMessage['status']
-  risk: number | null
-  reason: string | null
-  responseTimeMs: number | null
-}
-
-const responses = computed<ResponseEntry[]>(() => {
-  const entries: ResponseEntry[] = []
-  let lastUser: AdminMessage | null = null
-  for (const message of props.messages) {
-    if (message.role === 'user') {
-      lastUser = message
-      continue
-    }
-    entries.push({
-      number: entries.length + 1,
-      prompt: lastUser?.content ?? '',
-      text: message.content,
-      status: message.status,
-      risk: lastUser?.promptRisk ?? null,
-      reason: lastUser?.promptRiskReason ?? null,
-      responseTimeMs: message.responseTimeMs,
-    })
-  }
-  return entries
-})
-
-type Filter = 'all' | 'reason' | 'ascending' | 'descending'
-const filters: { id: Filter; label: string }[] = [
-  { id: 'all', label: 'All' },
+const filters: { id: ResponseSort; label: string }[] = [
+  { id: 'newest', label: 'All' },
   { id: 'reason', label: 'Reason' },
-  { id: 'ascending', label: 'Scores (↓ to ↑)' },
-  { id: 'descending', label: 'Scores (↑ to ↓)' },
+  { id: 'risk-asc', label: 'Scores (↓ to ↑)' },
+  { id: 'risk-desc', label: 'Scores (↑ to ↓)' },
 ]
-const activeFilter = ref<Filter>('all')
 
-// Unclassified entries (null) always go last, whatever the order.
-const byNullLast = <T,>(a: T | null, b: T | null, compare: (x: T, y: T) => number) =>
-  a === null ? (b === null ? 0 : 1) : b === null ? -1 : compare(a, b)
-
-const visibleResponses = computed(() => {
-  const list = [...responses.value]
-  switch (activeFilter.value) {
-    case 'reason':
-      return list.sort((a, b) => byNullLast(a.reason, b.reason, (x, y) => x.localeCompare(y)) || a.number - b.number)
-    case 'ascending':
-      return list.sort((a, b) => byNullLast(a.risk, b.risk, (x, y) => x - y) || a.number - b.number)
-    case 'descending':
-      return list.sort((a, b) => byNullLast(a.risk, b.risk, (x, y) => y - x) || a.number - b.number)
-    default:
-      return list
-  }
-})
-
-watch(
-  () => props.messages,
-  () => {
-    activeFilter.value = 'all'
-    dialog.value = null
-  },
-)
-
-const isHigh = (entry: ResponseEntry) => entry.risk !== null && entry.risk >= props.riskThreshold
-const scoreText = (entry: ResponseEntry) =>
-  entry.risk === null ? 'Pending' : `${entry.risk.toFixed(2)} / 1 (${isHigh(entry) ? 'high' : 'low'} risk)`
+const isHigh = (r: AdminResponse) => r.promptRisk !== null && r.promptRisk >= props.riskThreshold
+const scoreText = (r: AdminResponse) =>
+  r.promptRisk === null ? 'Pending' : `${r.promptRisk.toFixed(2)} / 1 (${isHigh(r) ? 'high' : 'low'} risk)`
 const timingText = (ms: number | null) =>
   ms === null ? 'Not measured' : `${ms < 1000 ? `${ms} ms` : `${(ms / 1000).toFixed(1)}s`} response latency`
-const responseText = (entry: ResponseEntry) =>
-  entry.status === 'blocked'
-    ? 'Hidden for safety reasons.'
-    : entry.status === 'failed'
-      ? 'Generation failed.'
-      : entry.text
 
+// Copies "Response №12": paste it into the search on the left to open the conversation it came from.
 const copied = ref<number | null>(null)
 let copiedTimer: number | undefined
-
-async function copyResponse(entry: ResponseEntry) {
+async function copyNumber(r: AdminResponse) {
   try {
-    await navigator.clipboard.writeText(responseText(entry))
-    copied.value = entry.number
+    await navigator.clipboard.writeText(`Response №${r.responseNumber}`)
+    copied.value = r.responseNumber
     window.clearTimeout(copiedTimer)
     copiedTimer = window.setTimeout(() => (copied.value = null), 1500)
   } catch {
@@ -108,66 +53,94 @@ async function copyResponse(entry: ResponseEntry) {
   }
 }
 
-const dialog = ref<{ type: 'response' | 'report'; entry: ResponseEntry } | null>(null)
+const report = ref<AdminResponse | null>(null)
+
+// Keep the card of the highlighted reply in view (e.g. after pasting its number into the search).
+const scroller = ref<HTMLElement | null>(null)
+watch(
+  () => [props.activeMessageId, props.responses],
+  async () => {
+    if (!props.activeMessageId) return
+    await nextTick()
+    scroller.value
+      ?.querySelector(`[data-message-id="${props.activeMessageId}"]`)
+      ?.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
+  },
+)
 </script>
 
 <template>
   <aside class="responses" aria-label="Responses">
     <header class="head">
       <h2>Responses</h2>
-      <button class="icon" type="button" aria-label="Hide responses panel" title="Hide panel" @click="emit('close')">
-        <SidePanelClose />
-      </button>
+      <div class="head-actions">
+        <button class="icon" type="button" aria-label="Reload" title="Reload responses and conversations" @click="emit('refresh')">
+          <Renew />
+        </button>
+        <button class="icon" type="button" aria-label="Hide responses panel" title="Hide panel" @click="emit('close')">
+          <SidePanelClose />
+        </button>
+      </div>
     </header>
 
     <section class="card filters" aria-label="Filters">
       <div class="filters-head">
         <h3>Filters</h3>
-        <button class="link" type="button" @click="activeFilter = 'all'">Reset</button>
+        <button class="link" type="button" @click="emit('changeSort', 'newest')">Reset</button>
       </div>
       <div class="chips">
         <button
           v-for="filter in filters"
           :key="filter.id"
           type="button"
-          :aria-pressed="activeFilter === filter.id"
-          @click="activeFilter = filter.id"
+          :aria-pressed="sort === filter.id"
+          @click="emit('changeSort', filter.id)"
         >
           {{ filter.label }}
         </button>
       </div>
     </section>
 
-    <div class="scroll">
-      <p v-if="isLoading" class="empty">Loading…</p>
-      <p v-else-if="responses.length === 0" class="empty">No responses in this conversation yet.</p>
+    <div ref="scroller" class="scroll">
+      <p v-if="error" class="empty error">{{ error }}</p>
+      <p v-else-if="isLoading && responses.length === 0" class="empty">Loading…</p>
+      <p v-else-if="responses.length === 0" class="empty">No responses yet.</p>
 
-      <article v-for="entry in visibleResponses" :key="entry.number" class="card response">
+      <article
+        v-for="r in responses"
+        :key="r.messageId"
+        :data-message-id="r.messageId"
+        class="card response"
+        :class="{ active: r.messageId === activeMessageId }"
+      >
         <header class="response-head">
-          <h3>Response №{{ entry.number }}</h3>
+          <h3>Response №{{ r.responseNumber }}</h3>
           <button
             class="icon round"
             type="button"
-            :aria-label="`Copy response ${entry.number}`"
-            title="Copy response text"
-            @click="copyResponse(entry)"
+            :aria-label="`Copy Response №${r.responseNumber}`"
+            title="Copy the response number, then paste it into the search on the left"
+            @click="copyNumber(r)"
           >
-            <Checkmark v-if="copied === entry.number" />
+            <Checkmark v-if="copied === r.responseNumber" />
             <Copy v-else />
           </button>
         </header>
-        <p class="preview">{{ responseText(entry) }}</p>
+        <p class="source" :title="r.conversationTitle">
+          {{ r.conversationTitle }} · User {{ r.userId.slice(0, 8) }}
+        </p>
+        <p class="preview">{{ r.content }}</p>
         <div class="right">
-          <button class="link" type="button" @click="dialog = { type: 'response', entry }">See full response →</button>
+          <button class="link" type="button" @click="emit('show', r)">See full response →</button>
         </div>
 
         <section class="section">
           <h4>Risk Metrics</h4>
           <div class="row">
             <span>Risk score · Threshold</span>
-            <span v-if="entry.risk === null" class="value pending">Pending</span>
-            <span v-else class="value" :class="{ high: isHigh(entry) }">
-              {{ entry.risk.toFixed(2) }}/{{ riskThreshold.toFixed(2) }}
+            <span v-if="r.promptRisk === null" class="value pending">Pending</span>
+            <span v-else class="value" :class="{ high: isHigh(r) }">
+              {{ r.promptRisk.toFixed(2) }}/{{ riskThreshold.toFixed(2) }}
             </span>
           </div>
         </section>
@@ -175,12 +148,12 @@ const dialog = ref<{ type: 'response' | 'report'; entry: ResponseEntry } | null>
         <section class="section">
           <h4 class="big">Report</h4>
           <div class="fields">
-            <p>Reason · {{ entry.reason ?? 'Pending' }}</p>
-            <p>Scores · {{ scoreText(entry) }}</p>
-            <p>Timing · {{ timingText(entry.responseTimeMs) }}</p>
+            <p>Reason · {{ r.promptRiskReason ?? 'Pending' }}</p>
+            <p>Scores · {{ scoreText(r) }}</p>
+            <p>Timing · {{ timingText(r.responseTimeMs) }}</p>
           </div>
           <div class="right">
-            <button class="open" type="button" @click="dialog = { type: 'report', entry }">
+            <button class="open" type="button" @click="report = r">
               Open
               <ChevronDown />
             </button>
@@ -189,28 +162,20 @@ const dialog = ref<{ type: 'response' | 'report'; entry: ResponseEntry } | null>
       </article>
     </div>
 
-    <AppModal
-      v-if="dialog"
-      :title="dialog.type === 'response' ? `Response №${dialog.entry.number}` : `Report — Response №${dialog.entry.number}`"
-      @close="dialog = null"
-    >
+    <AppModal v-if="report" :title="`Report — Response №${report.responseNumber}`" @close="report = null">
       <dl class="details">
+        <dt>Conversation</dt>
+        <dd>{{ report.conversationTitle }} (User {{ report.userId.slice(0, 8) }})</dd>
         <dt>User prompt</dt>
-        <dd>{{ dialog.entry.prompt || '—' }}</dd>
-        <template v-if="dialog.type === 'response'">
-          <dt>Response</dt>
-          <dd class="pre">{{ responseText(dialog.entry) }}</dd>
-        </template>
-        <template v-else>
-          <dt>Risk score</dt>
-          <dd>{{ scoreText(dialog.entry) }}</dd>
-          <dt>Threshold</dt>
-          <dd>{{ riskThreshold.toFixed(2) }}</dd>
-          <dt>Reason</dt>
-          <dd>{{ dialog.entry.reason ?? 'Pending: not classified yet' }}</dd>
-          <dt>Timing</dt>
-          <dd>{{ timingText(dialog.entry.responseTimeMs) }}</dd>
-        </template>
+        <dd class="pre">{{ report.prompt || '—' }}</dd>
+        <dt>Risk score</dt>
+        <dd>{{ scoreText(report) }}</dd>
+        <dt>Threshold</dt>
+        <dd>{{ riskThreshold.toFixed(2) }}</dd>
+        <dt>Reason</dt>
+        <dd>{{ report.promptRiskReason ?? 'Pending: not classified yet' }}</dd>
+        <dt>Timing</dt>
+        <dd>{{ timingText(report.responseTimeMs) }}</dd>
       </dl>
     </AppModal>
   </aside>
@@ -233,6 +198,10 @@ const dialog = ref<{ type: 'response' | 'report'; entry: ResponseEntry } | null>
   justify-content: space-between;
   margin-bottom: 4px;
 }
+.head-actions {
+  display: flex;
+  gap: 2px;
+}
 h2,
 h3 {
   margin: 0;
@@ -250,6 +219,10 @@ h3 {
   border-radius: 8px;
   background: var(--surface);
   box-shadow: var(--shadow);
+}
+.response.active {
+  border-color: var(--highlight);
+  box-shadow: 0 0 0 2px var(--highlight-glow);
 }
 .filters-head {
   display: flex;
@@ -307,13 +280,16 @@ h3 {
   display: flex;
   flex-direction: column;
   gap: 6px;
-  padding-right: 2px;
+  padding: 2px 2px 2px 0;
 }
 .empty {
   margin: 24px 8px;
   text-align: center;
   font-size: 13px;
   color: var(--text-muted);
+}
+.empty.error {
+  color: var(--danger);
 }
 .response-head {
   display: flex;
@@ -323,6 +299,14 @@ h3 {
 .response-head h3 {
   font-size: 15px;
   font-weight: 700;
+}
+.source {
+  margin: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: 11px;
+  color: var(--text-muted);
 }
 .preview {
   display: -webkit-box;

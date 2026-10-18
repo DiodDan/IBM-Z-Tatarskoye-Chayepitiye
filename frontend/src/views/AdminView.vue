@@ -15,12 +15,16 @@ const responsesOpen = ref(true)
 onMounted(() => {
   document.title = 'AI Chat — Admin'
   admin.loadConversations()
+  admin.loadResponses()
 })
 
 const ownerLabel = computed(() => {
   const id = admin.activeConversation.value?.userId
   return id ? `User ${id.slice(0, 8)}` : null
 })
+
+// The left-panel ring marks the conversation the highlighted response comes from.
+const flashId = computed(() => (admin.highlightedMessageId.value ? admin.activeConversationId.value : null))
 
 // Admins can't send; the panel requires a handler, so this one always refuses.
 const refuseSend = async () => false
@@ -37,7 +41,12 @@ const refuseSend = async () => false
       :error="admin.listError.value"
       :theme="theme"
       readonly
-      @select="admin.selectConversation"
+      remote-search
+      search-placeholder="Search or paste Response №…"
+      :flash-id="flashId"
+      :flash-key="admin.highlightPulse.value"
+      @select="(id) => admin.openConversation(id)"
+      @search="admin.search"
       @change-theme="setTheme"
     />
 
@@ -50,6 +59,8 @@ const refuseSend = async () => false
       :send-error="null"
       :on-send="refuseSend"
       :owner-label="ownerLabel"
+      :highlight-id="admin.highlightedMessageId.value"
+      :highlight-key="admin.highlightPulse.value"
       readonly
       show-risk
     >
@@ -69,10 +80,16 @@ const refuseSend = async () => false
 
     <ResponsesSidebar
       v-if="responsesOpen"
-      :messages="admin.messages.value"
+      :responses="admin.responses.value"
       :risk-threshold="admin.riskThreshold.value"
-      :is-loading="admin.isLoadingHistory.value"
+      :sort="admin.responseSort.value"
+      :is-loading="admin.isLoadingResponses.value"
+      :error="admin.responsesError.value"
+      :active-message-id="admin.highlightedMessageId.value"
       @close="responsesOpen = false"
+      @refresh="admin.refresh"
+      @change-sort="admin.loadResponses"
+      @show="admin.showResponse"
     />
   </div>
 </template>

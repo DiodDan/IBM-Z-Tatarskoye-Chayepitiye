@@ -19,6 +19,12 @@ const props = defineProps<{
   theme: Theme
   /** Admin view: no new/rename/delete. */
   readonly?: boolean
+  /** Admin view: searching is done by the server (emits `search`); `conversations` are already the results. */
+  remoteSearch?: boolean
+  searchPlaceholder?: string
+  /** Admin view: conversation to flash and scroll to; flashes again whenever `flashKey` changes. */
+  flashId?: string | null
+  flashKey?: number
 }>()
 
 const emit = defineEmits<{
@@ -28,16 +34,21 @@ const emit = defineEmits<{
   delete: [id: string]
   changeTheme: [theme: Theme]
   close: []
+  search: [query: string]
 }>()
 
 const search = ref('')
 
-// Client-side filter over what the sidebar already shows (title + newest message).
+// User view: client-side filter over what the sidebar already shows (title + newest message).
 const filtered = computed(() => {
   const query = search.value.trim().toLowerCase()
-  if (!query) return props.conversations
+  if (props.remoteSearch || !query) return props.conversations
   return props.conversations.filter((c) => `${c.title} ${c.lastMessage ?? ''}`.toLowerCase().includes(query))
 })
+
+function onSearchInput() {
+  if (props.remoteSearch) emit('search', search.value)
+}
 </script>
 
 <template>
@@ -63,15 +74,24 @@ const filtered = computed(() => {
 
     <label class="search">
       <Search />
-      <input v-model="search" type="search" placeholder="Search conversations..." aria-label="Search conversations" />
+      <input
+        v-model="search"
+        type="search"
+        :placeholder="searchPlaceholder ?? 'Search conversations...'"
+        :title="searchPlaceholder ?? 'Search conversations'"
+        aria-label="Search conversations"
+        @input="onSearchInput"
+      />
     </label>
 
-    <p class="count">{{ conversationCount }} conversation{{ conversationCount === 1 ? '' : 's' }}</p>
+    <p class="count">
+      {{ conversationCount }} conversation{{ conversationCount === 1 ? '' : 's' }}{{ remoteSearch && search.trim() ? ' found' : '' }}
+    </p>
 
     <p v-if="error" class="note error">{{ error }}</p>
-    <p v-if="isLoading" class="note">Loading…</p>
-    <p v-else-if="conversations.length === 0" class="note">No conversations yet.</p>
-    <p v-else-if="filtered.length === 0" class="note">No conversations found.</p>
+    <p v-if="isLoading && filtered.length === 0" class="note">Loading…</p>
+    <p v-else-if="filtered.length === 0 && search.trim()" class="note">No conversations found.</p>
+    <p v-else-if="filtered.length === 0" class="note">No conversations yet.</p>
 
     <ul class="list">
       <ConversationListItem
@@ -81,6 +101,8 @@ const filtered = computed(() => {
         :active="conversation.id === activeConversationId"
         :disabled="disabled"
         :readonly="readonly"
+        :flash="conversation.id === flashId"
+        :flash-key="flashKey"
         @select="(id) => emit('select', id)"
         @rename="(id, title) => emit('rename', id, title)"
         @delete="(id) => emit('delete', id)"

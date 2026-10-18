@@ -9,6 +9,10 @@ const props = defineProps<{
   /** Admin view only: show the risk of the user prompt this reply answers. */
   showRisk?: boolean
   promptRisk?: number | null
+  /** Admin view: the app-wide "Response №" of this reply. */
+  responseNumber?: number | null
+  /** Admin view: the message picked in the Responses panel or found by search. */
+  highlighted?: boolean
 }>()
 
 const emit = defineEmits<{ suggest: [text: string] }>()
@@ -25,10 +29,13 @@ const riskLabel = computed(() => {
 
 <template>
   <!-- User -->
-  <article v-if="isUser" class="message user" aria-label="Your message">
+  <article v-if="isUser" class="message user" :data-message-id="message.id" aria-label="Your message">
     <div class="label">You</div>
     <div class="row">
-      <div class="bubble" :class="{ pending: status === 'pending', 'user-blocked': status === 'blocked' }">
+      <div
+        class="bubble"
+        :class="{ pending: status === 'pending', 'user-blocked': status === 'blocked', highlighted }"
+      >
         {{ message.content }}
         <span v-if="status === 'blocked'" class="blocked-tag">Blocked</span>
       </div>
@@ -36,15 +43,28 @@ const riskLabel = computed(() => {
   </article>
 
   <!-- Assistant -->
-  <article v-else class="message assistant" aria-label="Assistant response" :aria-busy="status === 'pending' || undefined">
+  <article
+    v-else
+    class="message assistant"
+    :data-message-id="message.id"
+    aria-label="Assistant response"
+    :aria-busy="status === 'pending' || undefined"
+  >
     <div class="label">Response</div>
     <div class="grid">
       <span class="cpu-tile avatar"><Chip /></span>
-      <div class="name">AI Assistant</div>
+      <div class="name">
+        AI Assistant
+        <span v-if="responseNumber" class="number" :class="{ highlighted }">Response №{{ responseNumber }}</span>
+      </div>
 
-      <div v-if="status === 'blocked'" class="bubble notice">This response was hidden for safety reasons.</div>
-      <div v-else-if="status === 'failed'" class="bubble notice">Something went wrong generating this response.</div>
-      <div v-else class="bubble" :class="{ pending: status === 'pending' }">
+      <div v-if="status === 'blocked'" class="bubble notice" :class="{ highlighted }">
+        This response was hidden for safety reasons.
+      </div>
+      <div v-else-if="status === 'failed'" class="bubble notice" :class="{ highlighted }">
+        Something went wrong generating this response.
+      </div>
+      <div v-else class="bubble" :class="{ pending: status === 'pending', highlighted }">
         <p v-for="(paragraph, index) in paragraphs" :key="index">{{ paragraph }}</p>
 
         <div v-if="message.suggestions?.length" class="suggestions">
@@ -165,6 +185,33 @@ const riskLabel = computed(() => {
 }
 .suggestions button:hover:not(:disabled) {
   background: var(--chip-hover);
+}
+.number {
+  margin-left: 6px;
+  padding: 0 6px;
+  border-radius: 8px;
+  background: var(--surface-hover);
+  font-size: 10px;
+}
+.number.highlighted {
+  background: var(--highlight);
+  color: #fff;
+}
+/* Admin: the response picked in the Responses panel (or found by search). */
+.bubble.highlighted {
+  border-color: var(--highlight);
+  background: var(--highlight-bg);
+  box-shadow: 0 0 0 3px var(--highlight-glow);
+  animation: glow 1.6s ease-out;
+}
+@keyframes glow {
+  0%,
+  40% {
+    box-shadow: 0 0 0 7px var(--highlight-glow);
+  }
+  100% {
+    box-shadow: 0 0 0 3px var(--highlight-glow);
+  }
 }
 .risk {
   grid-column: 2;

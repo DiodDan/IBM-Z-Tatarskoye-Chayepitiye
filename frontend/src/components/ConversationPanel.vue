@@ -24,6 +24,9 @@ const props = defineProps<{
   showRisk?: boolean
   /** Admin view: extra header badge, e.g. the conversation owner's anonymous id. */
   ownerLabel?: string | null
+  /** Admin view: message to highlight and scroll to (see MessageList). */
+  highlightId?: string | null
+  highlightKey?: number
 }>()
 
 const emit = defineEmits<{
@@ -111,6 +114,8 @@ defineExpose({ focusComposer })
       :is-waiting-for-reply="isSending"
       :readonly="readonly"
       :show-risk="showRisk"
+      :highlight-id="highlightId"
+      :highlight-key="highlightKey"
       @suggest="onSend"
     />
 
