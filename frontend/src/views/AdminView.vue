@@ -7,7 +7,7 @@ import ResponsesSidebar from '../components/ResponsesSidebar.vue'
 import { useAdminConversations } from '../composables/useAdminConversations'
 import { useTheme } from '../composables/useTheme'
 
-// Read-only admin page: every user's conversations plus prompt-risk data. Opened at /admin (or /#/admin).
+// Read-only admin page: every user's conversations plus stored response and trajectory model scores. Opened at /admin (or /#/admin).
 const admin = useAdminConversations()
 const { theme, setTheme } = useTheme()
 const responsesOpen = ref(true)
@@ -90,6 +90,7 @@ const refuseSend = async () => false
       @refresh="admin.refresh"
       @change-sort="admin.loadResponses"
       @show="admin.showResponse"
+      @jump="(conversationId, messageId) => admin.openConversation(conversationId, messageId)"
     />
   </div>
 </template>

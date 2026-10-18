@@ -58,6 +58,11 @@ async function share() {
   }
 }
 
+async function sendSuggestion(content: string) {
+  if (props.readonly || props.isSending || props.isLoadingHistory) return
+  await props.onSend(content)
+}
+
 function focusComposer() {
   composer.value?.focus()
 }
@@ -116,7 +121,7 @@ defineExpose({ focusComposer })
       :show-risk="showRisk"
       :highlight-id="highlightId"
       :highlight-key="highlightKey"
-      @suggest="onSend"
+      @suggest="sendSuggestion"
     />
 
     <MessageComposer

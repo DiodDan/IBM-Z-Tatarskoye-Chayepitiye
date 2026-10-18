@@ -93,18 +93,75 @@ public final class AiB2BSaaSService implements AutoCloseable {
         return HexFormat.of().formatHex(digest.digest());
     }
 
-    public AiB2BSaaSService(Path bundle, int threads) throws Exception {
+    /** Checks the complete export before allocating native sessions; never rewrites checksums. */
+    public static JsonNode verifyBundle(Path bundle) throws Exception {
         Path root = bundle.toRealPath();
-        manifest = JSON.readTree(root.resolve("manifest.json").toFile());
+        Path manifestFile = root.resolve("manifest.json");
+        if (isLfsPointer(manifestFile))
+            throw new IllegalArgumentException("manifest.json is a Git LFS pointer; run git lfs pull");
+        JsonNode manifest = JSON.readTree(manifestFile.toFile());
         if (!manifest.path("format").asText().equals("trajectory-java-v2"))
             throw new IllegalArgumentException("Expected trajectory-java-v2; install a matching window-aware model bundle");
-        var files = manifest.required("files").fields();
-        while (files.hasNext()) {
-            var item = files.next();
-            Path file = root.resolve(item.getKey()).toRealPath();
-            if (!file.startsWith(root) || !sha256(file).equals(item.getValue().asText()))
-                throw new IllegalArgumentException("Corrupt bundle: " + item.getKey());
+        JsonNode files = manifest.required("files");
+        if (!files.isObject() || files.isEmpty())
+            throw new IllegalArgumentException("Model manifest must contain nonempty file checksums");
+        List<String> problems = new ArrayList<>();
+        List<String> required = new ArrayList<>(List.of(
+                "encoder.onnx", "response_aggregator.onnx", "composer.onnx", "golden.json"));
+        String tokenizer = manifest.required("tokenizer").asText();
+        if (tokenizer.isBlank()) throw new IllegalArgumentException("Missing tokenizer path");
+        required.add(tokenizer);
+        for (String name : required)
+            if (!files.has(name)) problems.add(name + ": checksum missing from manifest");
+        var entries = files.fields();
+        while (entries.hasNext()) {
+            var item = entries.next();
+            String name = item.getKey();
+            Path file = root.resolve(name).normalize();
+            if (name.isBlank() || Path.of(name).isAbsolute() || !file.startsWith(root)) {
+                problems.add(name + ": unsafe bundle path");
+                continue;
+            }
+            if (!Files.isRegularFile(file)) {
+                problems.add(name + ": missing file");
+                continue;
+            }
+            file = file.toRealPath();
+            if (!file.startsWith(root)) {
+                problems.add(name + ": symlink escapes bundle");
+                continue;
+            }
+            if (isLfsPointer(file)) {
+                problems.add(name + ": Git LFS pointer instead of file contents; run git lfs pull");
+                continue;
+            }
+            String expected = item.getValue().asText();
+            if (!expected.matches("[0-9a-f]{64}")) {
+                problems.add(name + ": invalid SHA-256 in manifest");
+                continue;
+            }
+            String actual = sha256(file);
+            if (!actual.equals(expected))
+                problems.add(name + ": SHA-256 mismatch; expected=" + expected + "; actual=" + actual);
         }
+        if (!problems.isEmpty())
+            throw new IllegalArgumentException("Invalid model bundle:\n - " + String.join("\n - ", problems)
+                    + "\nInstall all files from the same trajectory-java-v2 export. "
+                    + "If the files are present but hashes differ after merging, replace the mixed export; do not edit manifest checksums.");
+        return manifest;
+    }
+
+    private static boolean isLfsPointer(Path file) throws java.io.IOException {
+        try (var input = Files.newInputStream(file)) {
+            return new String(input.readNBytes(128), java.nio.charset.StandardCharsets.US_ASCII)
+                    .startsWith("version https://git-lfs.github.com/spec/v1");
+        }
+    }
+
+    public AiB2BSaaSService(Path bundle, int threads) throws Exception {
+        if (threads < 1) throw new IllegalArgumentException("threads must be positive");
+        Path root = bundle.toRealPath();
+        manifest = verifyBundle(root);
         length = manifest.required("sequence_length").asInt();
         dimension = manifest.required("dimension").asInt();
         var contract = manifest.required("response_encoding");

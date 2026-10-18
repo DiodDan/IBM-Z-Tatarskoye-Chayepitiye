@@ -1,12 +1,15 @@
 <script setup lang="ts">
 import { computed } from 'vue'
+import MarkdownText from './MarkdownText.vue'
+import { presentResponse } from '../services/responsePresentation'
+import ModelScoreCard from './ModelScoreCard.vue'
 import Chip from '@carbon/icons-vue/es/chip/20'
 import type { Message } from '../types/api'
 
 const props = defineProps<{
   message: Message
   suggestionsDisabled: boolean
-  /** Admin view only: show the risk of the user prompt this reply answers. */
+  /** Admin view only: show stored assistant response and trajectory model scores. */
   showRisk?: boolean
   promptRisk?: number | null
   /** Admin view: the app-wide "Response №" of this reply. */
@@ -16,10 +19,13 @@ const props = defineProps<{
 }>()
 
 const emit = defineEmits<{ suggest: [text: string] }>()
+function suggest(text: string) {
+  if (!props.suggestionsDisabled && props.message.role === 'assistant') emit('suggest', text)
+}
 
 const status = computed(() => props.message.status ?? 'allowed')
 const isUser = computed(() => props.message.role === 'user')
-const paragraphs = computed(() => props.message.content.split(/\n\s*\n/))
+const presentation = computed(() => presentResponse(props.message.content, props.message.suggestions))
 
 const riskLabel = computed(() => {
   const risk = props.promptRisk
@@ -65,23 +71,25 @@ const riskLabel = computed(() => {
         Something went wrong generating this response.
       </div>
       <div v-else class="bubble" :class="{ pending: status === 'pending', highlighted }">
-        <p v-for="(paragraph, index) in paragraphs" :key="index">{{ paragraph }}</p>
+        <MarkdownText :text="presentation.text" />
 
-        <div v-if="message.suggestions?.length" class="suggestions">
+        <div v-if="presentation.suggestions.length" class="suggestions">
           <button
-            v-for="suggestion in message.suggestions"
+            v-for="suggestion in presentation.suggestions"
             :key="suggestion"
             type="button"
             :disabled="suggestionsDisabled"
-            @click="emit('suggest', suggestion)"
+            @click="suggest(suggestion)"
           >
             {{ suggestion }}
           </button>
         </div>
       </div>
 
-      <!-- Admin only. Scores the USER prompt above, not this reply. -->
-      <div v-if="showRisk" class="risk">User prompt risk · {{ riskLabel }}</div>
+      <div v-if="showRisk" class="model-assessment">
+        <ModelScoreCard :assessment="message.modelAssessment" />
+        <p v-if="promptRisk != null" class="legacy-risk">Legacy user prompt score · {{ riskLabel }}</p>
+      </div>
     </div>
   </article>
 </template>
@@ -213,6 +221,8 @@ const riskLabel = computed(() => {
     box-shadow: 0 0 0 3px var(--highlight-glow);
   }
 }
+.model-assessment { grid-column: 2; margin-top: 8px; }
+.legacy-risk { font-size: 11px; color: var(--text-muted); }
 .risk {
   grid-column: 2;
   margin-top: 6px;

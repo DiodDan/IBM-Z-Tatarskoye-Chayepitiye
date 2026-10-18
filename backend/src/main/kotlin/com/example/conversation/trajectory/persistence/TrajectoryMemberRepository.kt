@@ -10,5 +10,8 @@ interface TrajectoryMemberRepository : JpaRepository<TrajectoryMember, UUID> {
     fun findByResponseEmbeddingId(responseEmbeddingId: UUID): TrajectoryMember?
     @EntityGraph(attributePaths = ["responseEmbedding", "responseEmbedding.response", "trajectory"])
     fun findByTrajectoryConversationIdAndTrajectoryModelFingerprint(conversationId: UUID, modelFingerprint: String): List<TrajectoryMember>
+    @EntityGraph(attributePaths = ["responseEmbedding", "responseEmbedding.response", "trajectory"])
+    fun findByResponseEmbeddingResponseIdInAndTrajectoryModelFingerprint(responseIds: Collection<UUID>, modelFingerprint: String): List<TrajectoryMember>
+    @EntityGraph(attributePaths = ["responseEmbedding", "responseEmbedding.response", "responseEmbedding.response.conversation", "trajectory"])
     fun findByTrajectoryIdOrderByOrdinalAsc(trajectoryId: UUID): List<TrajectoryMember>
 }

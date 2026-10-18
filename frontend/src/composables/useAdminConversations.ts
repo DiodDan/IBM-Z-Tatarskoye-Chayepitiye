@@ -48,6 +48,7 @@ export function useAdminConversations() {
 
   let historyController: AbortController | null = null
   let listRequest = 0
+  let responseRequest = 0
 
   async function loadConversations(query = searchQuery.value) {
     const requestId = ++listRequest
@@ -84,18 +85,19 @@ export function useAdminConversations() {
   }
 
   async function loadResponses(sort = responseSort.value) {
+    const requestId = ++responseRequest
     responseSort.value = sort
     isLoadingResponses.value = true
     responsesError.value = null
     try {
       const result = await adminService.listResponses(sort)
-      if (sort !== responseSort.value) return
+      if (requestId !== responseRequest) return
       responses.value = result.responses
       riskThreshold.value = result.riskThreshold
     } catch (err) {
-      responsesError.value = errorText(err)
+      if (requestId === responseRequest) responsesError.value = errorText(err)
     } finally {
-      isLoadingResponses.value = false
+      if (requestId === responseRequest) isLoadingResponses.value = false
     }
   }
 

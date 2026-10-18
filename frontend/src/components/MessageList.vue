@@ -8,7 +8,7 @@ const props = defineProps<{
   isWaitingForReply: boolean
   /** Admin view: suggestions can't be clicked. */
   readonly?: boolean
-  /** Admin view: show each reply's user-prompt risk (messages must carry `promptRisk`). */
+  /** Admin view: show each reply's stored model assessment. */
   showRisk?: boolean
   /** Admin view: message to highlight and scroll to; scrolls again whenever `highlightKey` changes. */
   highlightId?: string | null
