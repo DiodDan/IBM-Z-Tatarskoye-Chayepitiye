@@ -1,6 +1,6 @@
 package com.example.conversation.conversation.application.dto
 
-import com.example.conversation.conversation.model.MessageRole
+import com.example.conversation.conversation.persistence.model.MessageRole
 import java.time.Instant
 import java.util.UUID
 import com.example.conversation.llm.PromptExchange
@@ -12,6 +12,7 @@ data class ConversationPreview(
     val id: UUID,
     val title: String,
     val createdAt: Instant,
+    val lastMessage: String? = null,
 )
 
 data class MessageSnapshot(
@@ -20,6 +21,7 @@ data class MessageSnapshot(
     val content: String,
     val createdAt: Instant,
     val analysis: ResponseAnalysis? = null,
+    val suggestions: List<String> = emptyList(),
 )
 
 /** A conversation with its full history (GET /conversations/{id}). */

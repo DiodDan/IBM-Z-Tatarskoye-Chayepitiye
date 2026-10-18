@@ -1,6 +1,5 @@
-package com.example.conversation.conversation.model
+package com.example.conversation.conversation.persistence.model
 
-import com.example.conversation.conversation.model.MessageRole
 import jakarta.persistence.Column
 import jakarta.persistence.Entity
 import jakarta.persistence.EnumType
@@ -10,6 +9,10 @@ import jakarta.persistence.Id
 import jakarta.persistence.JoinColumn
 import jakarta.persistence.ManyToOne
 import jakarta.persistence.Table
+import org.hibernate.annotations.OnDelete
+import org.hibernate.annotations.OnDeleteAction
+import org.hibernate.annotations.JdbcTypeCode
+import org.hibernate.type.SqlTypes
 import java.time.Instant
 import java.util.UUID
 
@@ -22,7 +25,7 @@ class Message(
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "conversation_id", nullable = false)
-    @org.hibernate.annotations.OnDelete(action = org.hibernate.annotations.OnDeleteAction.CASCADE)
+    @OnDelete(action = OnDeleteAction.CASCADE)
     val conversation: Conversation,
 
     @Column(nullable = false)
@@ -37,6 +40,22 @@ class Message(
 
     @Column(nullable = false, columnDefinition = "timestamp with time zone")
     val createdAt: Instant,
+
+    @Column(name = "prompt_risk")
+    val promptRisk: Double? = null,
+
+    @Column(name = "prompt_risk_reason", columnDefinition = "text")
+    val promptRiskReason: String? = null,
+
+    @Column(name = "response_time_ms")
+    val responseTimeMs: Long? = null,
+
+    @Column(name = "response_number", unique = true)
+    val responseNumber: Long? = null,
+
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(nullable = false, columnDefinition = "jsonb")
+    val suggestions: List<String> = emptyList(),
 ) {
     /** The current chat contract stores USER/ASSISTANT pairs at positions 2n-1 / 2n. */
     fun assistantPosition(): Long {

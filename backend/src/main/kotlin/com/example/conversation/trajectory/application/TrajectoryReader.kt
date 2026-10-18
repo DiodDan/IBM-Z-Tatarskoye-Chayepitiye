@@ -1,6 +1,6 @@
 package com.example.conversation.trajectory.application
 
-import com.example.conversation.conversation.model.MessageRole
+import com.example.conversation.conversation.persistence.model.MessageRole
 import com.example.conversation.conversation.persistence.repository.MessageRepository
 import com.example.conversation.conversation.persistence.repository.ConversationRepository
 import com.example.conversation.error.*

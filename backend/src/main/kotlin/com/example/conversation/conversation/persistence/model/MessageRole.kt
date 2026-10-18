@@ -1,4 +1,4 @@
-package com.example.conversation.conversation.model
+package com.example.conversation.conversation.persistence.model
 
 /** Stored as "USER"/"ASSISTANT" in the database, sent as "user"/"assistant" in JSON. */
 enum class MessageRole {

@@ -36,10 +36,11 @@ class ConversationApiMapper {
         )
 
     fun toPreview(preview: ConversationPreview) =
-        ConversationPreviewResponse(preview.id, preview.title, preview.createdAt)
+        ConversationPreviewResponse(preview.id, preview.title, preview.createdAt, preview.lastMessage)
 
     private fun toMessage(message: MessageSnapshot) =
-        MessageResponse(message.id, message.role.apiValue, message.content, message.createdAt, message.analysis?.let(::toAnalysis))
+        MessageResponse(message.id, message.role.apiValue, message.content, message.createdAt,
+            message.analysis?.let(::toAnalysis), message.suggestions)
 
     private fun toAnalysis(value: ResponseAnalysis) = ResponseAnalysisResponse(
         value.status.name.lowercase(), value.modelFingerprint, value.atomic?.let(::toScores),

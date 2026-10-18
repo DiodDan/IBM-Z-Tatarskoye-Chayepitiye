@@ -1,6 +1,6 @@
 package com.example.conversation.conversation.persistence.repository
 
-import com.example.conversation.conversation.model.Conversation
+import com.example.conversation.conversation.persistence.model.Conversation
 import org.springframework.data.jpa.repository.JpaRepository
 import org.springframework.data.jpa.repository.Lock
 import org.springframework.data.jpa.repository.Query
@@ -21,4 +21,20 @@ interface ConversationRepository : JpaRepository<Conversation, UUID> {
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select c from Conversation c where c.id = :id and c.user.externalId = :owner")
     fun lockOwned(@Param("id") id: UUID, @Param("owner") owner: UUID): Conversation?
+
+    @Query("select c from Conversation c join fetch c.user order by c.createdAt desc, c.id asc")
+    fun findAllWithUserNewestFirst(): List<Conversation>
+
+    @Query(
+        """
+        select c from Conversation c join fetch c.user
+        where lower(c.title) like :pattern escape '\'
+           or exists (select m.id from Message m where m.conversation = c and lower(m.content) like :pattern escape '\')
+        order by c.createdAt desc, c.id asc
+        """,
+    )
+    fun searchAllWithUser(@Param("pattern") pattern: String): List<Conversation>
+
+    @Query("select c from Conversation c join fetch c.user where c.id = :id")
+    fun findWithUser(@Param("id") id: UUID): Conversation?
 }

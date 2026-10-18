@@ -1,7 +1,7 @@
 package com.example.conversation.trajectory.model
 
-import com.example.conversation.conversation.model.Conversation
-import com.example.conversation.conversation.model.Message
+import com.example.conversation.conversation.persistence.model.Conversation
+import com.example.conversation.conversation.persistence.model.Message
 import jakarta.persistence.*
 
 import java.util.UUID

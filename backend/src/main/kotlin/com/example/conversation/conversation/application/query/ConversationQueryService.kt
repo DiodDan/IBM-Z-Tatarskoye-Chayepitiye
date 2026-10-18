@@ -11,7 +11,7 @@ import org.springframework.transaction.annotation.Isolation
 import com.example.conversation.conversation.persistence.repository.ConversationRepository
 import com.example.conversation.conversation.persistence.repository.MessageRepository
 import java.util.UUID
-import com.example.conversation.conversation.model.MessageRole
+import com.example.conversation.conversation.persistence.model.MessageRole
 import com.example.conversation.trajectory.application.ResponseAnalysisReader
 
 @Service
@@ -23,8 +23,10 @@ class ConversationQueryService(
 
     /** An unknown (new) browser simply gets an empty list; no user row is created. */
     @Transactional(readOnly = true)
-    fun list(owner: UUID): List<ConversationPreview> =
-        conversations.findAllByUserExternalIdOrderByCreatedAtDescIdAsc(owner).map { it.toPreview() }
+    fun list(owner: UUID): List<ConversationPreview> {
+        val latest = messages.findLatestPerConversation(owner).associate { it.conversation.id to it.content }
+        return conversations.findAllByUserExternalIdOrderByCreatedAtDescIdAsc(owner).map { it.toPreview(latest[it.id]) }
+    }
 
     @Transactional(readOnly = true, isolation = Isolation.REPEATABLE_READ)
     fun conversationSnapshot(owner: UUID, conversationId: UUID): ConversationSnapshot {
@@ -34,6 +36,6 @@ class ConversationQueryService(
             val snapshot = it.toSnapshot()
             if (it.role == MessageRole.ASSISTANT) snapshot.copy(analysis = assessments[it.id] ?: analysis.missing()) else snapshot
         }
-        return ConversationSnapshot(conversation.toPreview(), history)
+        return ConversationSnapshot(conversation.toPreview(history.lastOrNull()?.content), history)
     }
 }

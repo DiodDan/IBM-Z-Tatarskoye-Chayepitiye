@@ -13,6 +13,7 @@ data class ConversationPreviewResponse(
     val id: UUID,
     val title: String,
     val createdAt: Instant,
+    val lastMessage: String? = null,
 )
 
 data class ConversationListResponse(
@@ -27,6 +28,7 @@ data class MessageResponse(
     val content: String,
     val createdAt: Instant,
     val analysis: ResponseAnalysisResponse? = null,
+    val suggestions: List<String> = emptyList(),
 )
 
 data class RiskScoresResponse(

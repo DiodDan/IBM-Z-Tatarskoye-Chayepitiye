@@ -10,6 +10,11 @@ import com.example.conversation.conversation.application.dto.MessageExchange
 import com.example.conversation.error.InvalidInput
 import com.example.conversation.llm.LlmGateway
 import com.example.conversation.llm.PromptFactory
+import com.example.conversation.llm.AssistantReply
+import com.example.conversation.llm.AssistantReplyParser
+import com.example.conversation.llm.PromptMessage
+import com.example.conversation.risk.PromptRiskAssessment
+import com.example.conversation.risk.PromptRiskClassifier
 import com.example.conversation.trajectory.application.ChatResponseAnalyzer
 import org.springframework.stereotype.Service
 import java.util.UUID
@@ -30,6 +35,8 @@ class ConversationCommandService(
     private val llm: LlmGateway,
     private val properties: ChatProperties,
     private val analysis: ChatResponseAnalyzer,
+    private val replyParser: AssistantReplyParser,
+    private val riskClassifier: PromptRiskClassifier,
 ) {
 
     fun create(owner: UUID, rawContent: String): MessageExchange {
@@ -37,8 +44,10 @@ class ConversationCommandService(
         val title = titleFactory.fromFirstMessage(content)
         val conversationId = UUID.randomUUID()
         return guard.runExclusive(conversationId) {
-            val reply = llm.generate(promptFactory.build(history = emptyList(), currentInput = content))
-            analyse(owner, writer.createWithExchange(owner, title, content, reply, conversationId))
+            val risk = assessRisk(content)
+            val reply = generateReply(promptFactory.build(history = emptyList(), currentInput = content))
+            analyse(owner, writer.createWithExchange(owner, title, content, reply.text, conversationId,
+                risk = risk, suggestions = reply.suggestions, responseTimeMs = reply.responseTimeMs))
         }
     }
 
@@ -48,14 +57,28 @@ class ConversationCommandService(
         reader.requireOwned(owner, conversationId)
         return guard.runExclusive(conversationId) {
             val context = reader.readReplyContext(owner, conversationId, properties.contextExchanges)
-            val reply = llm.generate(promptFactory.build(context.recentExchanges, content))
-            analyse(owner, writer.appendExchange(owner, conversationId, context.version, content, reply))
+            val risk = assessRisk(content)
+            val reply = generateReply(promptFactory.build(context.recentExchanges, content))
+            analyse(owner, writer.appendExchange(owner, conversationId, context.version, content, reply.text,
+                risk = risk, suggestions = reply.suggestions, responseTimeMs = reply.responseTimeMs))
         }
     }
 
     private fun analyse(owner: UUID, exchange: MessageExchange): MessageExchange = exchange.copy(
         assistantMessage = exchange.assistantMessage.copy(analysis = analysis.analyse(owner, exchange.assistantMessage.id)),
     )
+
+    private fun assessRisk(content: String): PromptRiskAssessment? =
+        riskClassifier.classify(content)
+            ?.takeIf { it.score.isFinite() && it.score in 0.0..1.0 }
+            ?.let { it.copy(reason = it.reason?.trim()?.takeIf(String::isNotEmpty)) }
+
+    private fun generateReply(prompt: List<PromptMessage>): AssistantReply {
+        val started = System.nanoTime()
+        val raw = llm.generate(prompt)
+        val elapsedMs = (System.nanoTime() - started) / 1_000_000
+        return replyParser.parse(raw).copy(responseTimeMs = elapsedMs)
+    }
 
     fun rename(owner: UUID, conversationId: UUID, rawTitle: String): ConversationPreview {
         val title = rawTitle.trim()

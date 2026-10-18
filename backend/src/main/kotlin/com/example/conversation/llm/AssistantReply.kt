@@ -1,6 +1,6 @@
 package com.example.conversation.llm
 
-import com.example.conversation.error.ApiException
+import com.example.conversation.error.GenerationFailed
 import org.springframework.stereotype.Component
 
 /**
@@ -23,12 +23,13 @@ class AssistantReplyParser {
     private val bareList = Regex("""^\s*\[\[([^\[\]\n]*\|[^\[\]\n]*)]]\s*\z""", RegexOption.MULTILINE)
 
     fun parse(raw: String): AssistantReply {
+        if (raw.isBlank()) throw GenerationFailed()
         val match = marker.findAll(raw).lastOrNull()
             ?: bareList.find(raw.trimEnd())
             ?: return AssistantReply(raw.trim(), emptyList())
 
         val text = raw.removeRange(match.range).trim()
-        if (text.isEmpty()) throw ApiException.generationFailed()
+        if (text.isEmpty()) throw GenerationFailed()
 
         val suggestions = match.groupValues[1]
             .split('|')

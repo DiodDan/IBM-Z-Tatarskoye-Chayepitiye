@@ -1,6 +1,6 @@
 package com.example.conversation.trajectory.model
 
-import com.example.conversation.conversation.model.Conversation
+import com.example.conversation.conversation.persistence.model.Conversation
 import jakarta.persistence.*
 import java.time.Duration
 import java.time.Instant

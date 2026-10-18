@@ -1,4 +1,4 @@
-package com.example.conversation.conversation.model
+package com.example.conversation.conversation.persistence.model
 
 import com.example.conversation.identity.model.User
 import jakarta.persistence.Column
@@ -38,12 +38,23 @@ class Conversation(
         protected set
 
     /** Positions belong to this conversation; the writer persists the whole exchange atomically. */
-    fun appendExchange(userText: String, assistantText: String, at: Instant): MessagePair {
+    fun appendExchange(
+        userText: String,
+        assistantText: String,
+        at: Instant,
+        promptRisk: Double? = null,
+        promptRiskReason: String? = null,
+        suggestions: List<String> = emptyList(),
+        responseTimeMs: Long? = null,
+        responseNumber: Long? = null,
+    ): MessagePair {
         require(userText.isNotBlank() && assistantText.isNotBlank()) { "An exchange needs two nonblank messages" }
         val first = Math.addExact(lastMessageSequence, 1)
         val last = Math.addExact(first, 1)
-        val userMessage = Message(UUID.randomUUID(), this, first, MessageRole.USER, userText, at)
-        val assistantMessage = Message(UUID.randomUUID(), this, last, MessageRole.ASSISTANT, assistantText, at)
+        val userMessage = Message(UUID.randomUUID(), this, first, MessageRole.USER, userText, at,
+            promptRisk = promptRisk, promptRiskReason = promptRiskReason)
+        val assistantMessage = Message(UUID.randomUUID(), this, last, MessageRole.ASSISTANT, assistantText, at,
+            suggestions = suggestions.toList(), responseTimeMs = responseTimeMs, responseNumber = responseNumber)
         lastMessageSequence = last
         return MessagePair(userMessage, assistantMessage)
     }
