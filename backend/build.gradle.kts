@@ -10,6 +10,11 @@ plugins {
 group = "com.example"
 version = "0.0.1-SNAPSHOT"
 
+// The standalone model verifier also has a main method; keep Spring startup explicit.
+springBoot {
+    mainClass.set("com.example.conversation.ConversationApplicationKt")
+}
+
 kotlin {
     jvmToolchain(21)
     compilerOptions {
