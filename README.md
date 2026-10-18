@@ -99,7 +99,13 @@ The backend imports `.env` as Java properties from the repository root or its ow
 
 The backend pins Spring Boot 3.5.15, Spring AI 1.1.8, Kotlin 2.2.21, and Java 21. Spring AI connects to OpenRouter's OpenAI-compatible API; `OPENROUTER_API_KEY` and `OPENROUTER_MODEL` are read from the environment or local `.env`. The model must be configured for `make backend`; `make backend-echo` does not require model credentials. JPA uses schema validation and Flyway manages the database schema.
 
-Each assistant message has `suggestions` (follow-up chips). The model is asked in `prompts/system.txt` to end its reply with a `[[suggestions]] a | b | c` line, which `AssistantReplyParser` removes from the stored text. The prompt-risk classifier plugs in by implementing `risk/PromptRiskClassifier.kt` (and removing `UnscoredPromptRiskClassifier`); scores (0–1, `null` until classified) are stored in `message.prompt_risk`. They are admin-only: the chat API never returns them, and they will be shown on the planned admin page.
+Each assistant message has `suggestions` (follow-up chips). The model is asked in `prompts/system.txt` to end its reply with a `[[suggestions]] a | b | c` line, which `AssistantReplyParser` removes from the stored text. The prompt-risk classifier plugs in by implementing `risk/PromptRiskClassifier.kt` (and removing `UnscoredPromptRiskClassifier`); it returns a score (0–1) and a reason, or `null` when unclassified. They are stored in `message.prompt_risk` / `message.prompt_risk_reason`, together with the model's response time (`message.response_time_ms`). All three are admin-only: the chat API never returns them.
+
+### Admin page
+
+Open http://localhost:5173/admin (or `/#/admin` on hosts without SPA routing). It is read-only and shows every user's conversations with a Responses panel: risk score vs. threshold, reason, and response timing ("Pending" until the classifier is plugged in). The threshold is `app.admin.risk-threshold` in `application.yaml` (default 0.5). Data comes from `GET /api/admin/conversations` and `GET /api/admin/conversations/{id}`.
+
+**There is no admin login yet.** Anyone who can reach the app can open `/admin` and read all conversations. Add authentication in `admin/AdminController.kt` before deploying anywhere other people can reach.
 
 The requirements disagree about `updatedAt` and sidebar ordering; resolve that against `openapi.json` before implementing the API.
 
