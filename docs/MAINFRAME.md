@@ -175,12 +175,39 @@ Configure/start PostgreSQL and your LLM settings as usual. Use the echo profile 
 without calling an external model. The current root Makefile is primarily a Mac developer
 entry point; the explicit Gradle commands above avoid its macOS Java selection logic.
 
-For containers, the current Dockerfile still needs s390x integration: supply the custom
-jar to the Gradle build, copy the native tokenizer into the runtime, set `RUST_LIBRARY_PATH`,
-and verify all builder/database images support the selected platform. Merely passing
-`--platform=linux/s390x` does not perform those steps. Java/frontend compilation can also
-run in a separate supported build environment, but the packaged JNI must target s390x.
-The UBI 9 runtime image supports s390x; its existence does not certify the whole stack.
+For the full container stack use **`Dockerfile.mainframe` and `compose.mainframe.yaml`**.
+They keep Java on Ubuntu 24.04, matching the environment where these native libraries
+were built, package the custom ORT jar and tokenizer, and run the numerical verifier
+during the image build. A mismatch stops the build. Node 24 trixie builds the frontend.
+The default developer Dockerfile is a separate build and does not package these s390x artifacts.
+
+From the server checkout, after `.env` and both native artifacts are present:
+
+```bash
+make mainframe-up
+make mainframe-check
+make mainframe-logs
+```
+
+The app defaults to the **echo** profile for an initial test without an external LLM.
+Set `APP_PROFILE=default` and the OpenRouter variables in `.env`, then run
+`make mainframe-up` again to use the actual provider. Model inference remains local in
+both modes. `make mainframe-up` does not compile ORT/tokenizers from source again.
+
+Inside this stack the app uses `postgres:5432`; Compose explicitly overrides both
+`POSTGRES_HOST` and `SPRING_DATASOURCE_URL` to prevent host-test settings in `.env` from
+selecting the wrong address. Existing `postgres_data` is preserved. Do not use `down -v`.
+Native files and weights must be actual files, not LFS pointers.
+
+The app is published only to `127.0.0.1:8080` on the server by default. From your Mac:
+
+```bash
+ssh -N -L 8081:127.0.0.1:8080 ibm
+```
+
+Then open `http://localhost:8081/`. This avoids a collision with a local app on port 8080.
+To check on the server directly, use `curl --fail http://127.0.0.1:8080/actuator/health`.
+The runtime image contains its accepted build report at `/app/verification.json`.
 
 Then check `/actuator/health` and send an echo message. The console should show
 `[trajectory] role=ASSISTANT dimensions=256 vector=[...]`. That is a useful smoke check;

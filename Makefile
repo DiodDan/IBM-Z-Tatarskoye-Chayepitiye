@@ -16,6 +16,9 @@ help:
 	@echo "make backend-build   Build and check the backend"
 	@echo "make frontend-build  Type-check and build the frontend"
 	@echo "make compose-check   Validate Docker Compose configuration"
+	@echo "make mainframe-up    Build, verify and start the s390x containers"
+	@echo "make mainframe-check Check container health and model verification"
+	@echo "make mainframe-logs  Follow the mainframe app logs"
 
 .env:
 	cp .env.template .env
@@ -54,3 +57,13 @@ frontend-build:
 
 compose-check: .env
 	docker compose -f docker-compose.yaml config --quiet
+
+.PHONY: mainframe-up mainframe-logs mainframe-check
+mainframe-up:
+	$(MAKE) -f mainframe.mk container-up
+
+mainframe-logs:
+	$(MAKE) -f mainframe.mk container-logs
+
+mainframe-check:
+	$(MAKE) -f mainframe.mk container-check

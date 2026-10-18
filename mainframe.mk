@@ -16,6 +16,8 @@ help:
 	@echo 'make -f mainframe.mk diagnose                 Read-only server inventory (Python 3.9+ required)'
 	@echo 'make -f mainframe.mk diagnose NETWORK=1       Also probe public dependency registries'
 	@echo 'make -f mainframe.mk verify ORT_JAR=/path/runtime.jar TOKENIZER_LIB_DIR=/path/native'
+	@echo 'make -f mainframe.mk container-up             Build, verify and start the s390x Compose stack'
+	@echo 'make -f mainframe.mk container-check          Show health and in-image model verification'
 	@echo 'Send mainframe-report/report.txt and report.json back for deployment planning.'
 
 define DIAG_PROGRAM
@@ -178,3 +180,19 @@ export VERIFY_PROGRAM ORT_JAR TOKENIZER_LIB_DIR THREADS REQUIRE_S390X
 
 verify:
 	@bash -eu -c "$$VERIFY_PROGRAM"
+
+.PHONY: container-up container-logs container-check
+container-up:
+	@test "$$(uname -m)" = s390x || { echo 'Run this target on the s390x server' >&2; exit 1; }
+	@test -f "$(PROJECT_DIR)/work/s390x-native/onnxruntime-s390x.jar" || { echo 'Missing verified ORT jar' >&2; exit 1; }
+	@test -f "$(PROJECT_DIR)/work/s390x-native/native/libtokenizers.so" || { echo 'Missing tokenizer library' >&2; exit 1; }
+	@cd "$(PROJECT_DIR)" && docker compose -f compose.mainframe.yaml config --quiet
+	@cd "$(PROJECT_DIR)" && docker compose -f compose.mainframe.yaml up -d --build --wait --wait-timeout 240
+
+container-logs:
+	@cd "$(PROJECT_DIR)" && docker compose -f compose.mainframe.yaml logs -f app
+
+container-check:
+	@cd "$(PROJECT_DIR)" && docker compose -f compose.mainframe.yaml ps
+	@cd "$(PROJECT_DIR)" && docker compose -f compose.mainframe.yaml exec -T app cat /app/verification.json
+	@cd "$(PROJECT_DIR)" && docker compose -f compose.mainframe.yaml exec -T app curl --fail --silent http://127.0.0.1:8080/actuator/health
