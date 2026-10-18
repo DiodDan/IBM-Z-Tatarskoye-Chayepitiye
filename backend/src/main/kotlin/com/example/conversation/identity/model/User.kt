@@ -17,6 +17,6 @@ class User(
     @Column(nullable = false, unique = true)
     val externalId: UUID,
 
-    @Column(nullable = false, columnDefinition = "timestamptz")
+    @Column(nullable = false, columnDefinition = "timestamp with time zone")
     val createdAt: Instant,
 )

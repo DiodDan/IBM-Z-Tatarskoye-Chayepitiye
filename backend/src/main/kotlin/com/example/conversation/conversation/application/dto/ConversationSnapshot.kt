@@ -3,6 +3,8 @@ package com.example.conversation.conversation.application.dto
 import com.example.conversation.conversation.model.MessageRole
 import java.time.Instant
 import java.util.UUID
+import com.example.conversation.llm.PromptExchange
+import com.example.conversation.trajectory.application.ResponseAnalysis
 
 // Immutable copies of database rows. They leave the transaction; JPA entities never do.
 
@@ -17,6 +19,7 @@ data class MessageSnapshot(
     val role: MessageRole,
     val content: String,
     val createdAt: Instant,
+    val analysis: ResponseAnalysis? = null,
 )
 
 /** A conversation with its full history (GET /conversations/{id}). */
@@ -29,7 +32,7 @@ data class ConversationSnapshot(
 data class ConversationContext(
     val conversation: ConversationPreview,
     /** Most recent messages, oldest first, always whole user+assistant pairs. */
-    val recentMessages: List<MessageSnapshot>,
-    /** Used to detect that someone else appended in the meantime. */
-    val maxSequence: Long,
+    val recentExchanges: List<PromptExchange>,
+    /** Version of the conversation on which generation is based. */
+    val version: Long,
 )

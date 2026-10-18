@@ -2,6 +2,7 @@ package com.example.conversation.error
 
 import org.slf4j.LoggerFactory
 import org.springframework.http.HttpStatus
+import org.springframework.dao.OptimisticLockingFailureException
 import org.springframework.http.ResponseEntity
 import org.springframework.http.converter.HttpMessageNotReadableException
 import org.springframework.web.ErrorResponse
@@ -16,6 +17,28 @@ import org.springframework.web.method.annotation.MethodArgumentTypeMismatchExcep
 class ApiExceptionHandler {
 
     private val log = LoggerFactory.getLogger(javaClass)
+
+    @ExceptionHandler(ApplicationFailure::class)
+    fun handleApplication(e: ApplicationFailure): ResponseEntity<ApiError> {
+        val (status, code) = when (e) {
+            is ConversationNotFound -> HttpStatus.NOT_FOUND to "CONVERSATION_NOT_FOUND"
+            is ConversationBusy -> HttpStatus.CONFLICT to "CONVERSATION_BUSY"
+            is ConversationChanged -> HttpStatus.CONFLICT to "CONVERSATION_CHANGED"
+            is InvalidInput -> HttpStatus.BAD_REQUEST to "INVALID_REQUEST"
+            is ContextTooLarge -> HttpStatus.UNPROCESSABLE_ENTITY to "CONTEXT_TOO_LARGE"
+            is GenerationFailed -> HttpStatus.BAD_GATEWAY to "GENERATION_FAILED"
+            is GenerationUnavailable -> HttpStatus.SERVICE_UNAVAILABLE to "MODEL_UNAVAILABLE"
+            is GenerationTimeout -> HttpStatus.GATEWAY_TIMEOUT to "GENERATION_TIMEOUT"
+            is AnalysisConflict -> HttpStatus.CONFLICT to "ANALYSIS_CONFLICT"
+            is AnalysisRejected -> HttpStatus.UNPROCESSABLE_ENTITY to "ANALYSIS_REJECTED"
+        }
+        if (status.is5xxServerError) log.warn("Request failed: code={} cause={}", code, e.cause?.javaClass?.name)
+        return ResponseEntity.status(status).body(ApiError(code, e.message ?: code))
+    }
+
+    @ExceptionHandler(OptimisticLockingFailureException::class, jakarta.persistence.OptimisticLockException::class)
+    fun handleConcurrentWrite(e: Exception): ResponseEntity<ApiError> =
+        handleApplication(ConversationChanged())
 
     @ExceptionHandler(ApiException::class)
     fun handleApi(e: ApiException): ResponseEntity<ApiError> {

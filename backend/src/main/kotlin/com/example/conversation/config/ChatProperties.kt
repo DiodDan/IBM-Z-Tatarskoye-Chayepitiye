@@ -13,4 +13,9 @@ data class ChatProperties(
     val maxMessageCodePoints: Int = 20_000,
     val maxTitleCodePoints: Int = 80,
     val systemPrompt: Resource,
-)
+) {
+    init {
+        require(contextExchanges in 0..10_000 && maxPromptChars > 0 && maxMessageCodePoints > 0)
+        require(maxTitleCodePoints in 1..80)
+    }
+}

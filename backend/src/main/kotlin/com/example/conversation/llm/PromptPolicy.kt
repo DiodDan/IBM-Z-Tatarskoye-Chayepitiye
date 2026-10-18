@@ -1,8 +1,7 @@
 package com.example.conversation.llm
 
 import com.example.conversation.config.ChatProperties
-import com.example.conversation.conversation.application.dto.MessageSnapshot
-import com.example.conversation.error.ApiException
+import com.example.conversation.error.ContextTooLarge
 import org.springframework.stereotype.Component
 
 /**
@@ -16,18 +15,18 @@ import org.springframework.stereotype.Component
 @Component
 class PromptPolicy(private val properties: ChatProperties) {
 
-    fun selectHistory(history: List<MessageSnapshot>, systemPrompt: String, currentInput: String): List<MessageSnapshot> {
+    fun selectHistory(history: List<PromptExchange>, systemPrompt: String, currentInput: String): List<PromptExchange> {
         var budget = properties.maxPromptChars - systemPrompt.length - currentInput.length
-        if (budget < 0) throw ApiException.contextTooLarge()
+        if (budget < 0) throw ContextTooLarge()
 
-        val exchanges = history.chunked(2).takeLast(properties.contextExchanges)
-        val kept = ArrayDeque<List<MessageSnapshot>>()
+        val exchanges = history.takeLast(properties.contextExchanges)
+        val kept = ArrayDeque<PromptExchange>()
         for (exchange in exchanges.asReversed()) {
-            val size = exchange.sumOf { it.content.length }
+            val size = exchange.user.length + exchange.assistant.length
             if (size > budget) break
             budget -= size
             kept.addFirst(exchange)
         }
-        return kept.flatten()
+        return kept.toList()
     }
 }

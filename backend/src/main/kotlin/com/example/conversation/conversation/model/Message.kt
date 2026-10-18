@@ -1,4 +1,4 @@
-package com.example.conversation.conversation.persistence.model
+package com.example.conversation.conversation.model
 
 import com.example.conversation.conversation.model.MessageRole
 import jakarta.persistence.Column
@@ -22,6 +22,7 @@ class Message(
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "conversation_id", nullable = false)
+    @org.hibernate.annotations.OnDelete(action = org.hibernate.annotations.OnDeleteAction.CASCADE)
     val conversation: Conversation,
 
     @Column(nullable = false)
@@ -34,6 +35,14 @@ class Message(
     @Column(nullable = false, columnDefinition = "text")
     val content: String,
 
-    @Column(nullable = false, columnDefinition = "timestamptz")
+    @Column(nullable = false, columnDefinition = "timestamp with time zone")
     val createdAt: Instant,
-)
+) {
+    /** The current chat contract stores USER/ASSISTANT pairs at positions 2n-1 / 2n. */
+    fun assistantPosition(): Long {
+        require(role == MessageRole.ASSISTANT && sequence > 0 && sequence % 2L == 0L) {
+            "Assistant position requires a complete ordered exchange"
+        }
+        return sequence / 2
+    }
+}
